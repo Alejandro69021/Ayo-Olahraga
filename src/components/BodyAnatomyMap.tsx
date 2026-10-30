@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -1282,11 +1283,10 @@ export function BodyAnatomyMap({
                 key={m.id}
                 type="button"
                 onClick={() => onToggleMuscle(m.enumVal)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${
-                  active
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${active
                     ? "bg-blue-600/20 border-blue-500 text-blue-300 font-bold shadow-sm"
                     : "bg-gray-900/60 border-gray-800 text-gray-400 hover:border-gray-700 hover:text-white"
-                }`}
+                  }`}
               >
                 {active && <Check className="w-3 h-3 text-blue-400" />}
                 {m.name}

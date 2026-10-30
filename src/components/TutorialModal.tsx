@@ -11,7 +11,8 @@ import {
   BarChart3,
   Dumbbell,
   Check,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from "lucide-react";
 import { ExerciseDetail } from "@/data/exercises";
 import { getYouTubeEmbedUrl } from "@/lib/youtube";
@@ -187,6 +188,29 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                   {exercise.tutorial.proTip}
                 </p>
               </div>
+
+              {/* Bukti Jurnal Ilmiah & Biomekanika */}
+              {exercise.researchCitation && (
+                <div className="p-4 rounded-2xl bg-blue-950/30 border border-blue-700/40 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-blue-400 font-bold text-xs">
+                      <BookOpen className="w-4 h-4 text-blue-400" /> Referensi Jurnal & Biomekanika
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      Peer-Reviewed
+                    </span>
+                  </div>
+                  <div className="text-xs font-semibold text-gray-200">
+                    {exercise.researchCitation.study} —{" "}
+                    <span className="text-blue-400/90 italic">
+                      {exercise.researchCitation.journal}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300/90 leading-relaxed">
+                    {exercise.researchCitation.findings}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

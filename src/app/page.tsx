@@ -6,9 +6,7 @@ import {
   Flame,
   Trophy,
   Play,
-  RotateCcw,
   CheckCircle2,
-  Clock,
   Layers,
   ChevronRight,
   ChevronLeft,
@@ -63,10 +61,6 @@ export default function HomePage() {
 
   // Active workout exercises state
   const [selectedWorkoutList, setSelectedWorkoutList] = useState<ExerciseDetail[]>([]);
-
-  // Rest Timer state
-  const [timerSeconds, setTimerSeconds] = useState<number>(0);
-  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
 
   // Live gym sets state for tracker: { [exerciseId]: [{ id, setNumber, weight, reps, completed }] }
   const [activeSets, setActiveSets] = useState<{ [exerciseId: string]: any[] }>({});
@@ -170,27 +164,6 @@ export default function HomePage() {
     setSelectedWorkoutList((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Rest Timer ticking logic
-  useEffect(() => {
-    let interval: any = null;
-    if (isTimerActive && timerSeconds > 0) {
-      interval = setInterval(() => {
-        setTimerSeconds((prev) => prev - 1);
-      }, 1000);
-    } else if (timerSeconds === 0 && isTimerActive) {
-      setIsTimerActive(false);
-      if (typeof window !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate([200, 100, 200]);
-      }
-    }
-    return () => clearInterval(interval);
-  }, [isTimerActive, timerSeconds]);
-
-  const startRestTimer = (seconds: number) => {
-    setTimerSeconds(seconds);
-    setIsTimerActive(true);
-  };
-
   // Start Gym Tracker
   const startWorkoutSession = () => {
     const exercisesToTrack = selectedWorkoutList.length > 0 ? selectedWorkoutList : filteredExercises.slice(0, 3);
@@ -211,9 +184,7 @@ export default function HomePage() {
       const current = prev[exerciseId] || [];
       const updated = current.map((s) => {
         if (s.id === setId) {
-          const nextState = !s.completed;
-          if (nextState) startRestTimer(90);
-          return { ...s, completed: nextState };
+          return { ...s, completed: !s.completed };
         }
         return s;
       });
@@ -223,54 +194,19 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 w-full max-w-4xl mx-auto px-4 py-6 md:py-10 space-y-8">
-      {/* 1. TOP HEADER LIKE WORKOUT.COOL */}
+      {/* 1. TOP HEADER */}
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-800 pb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-amber-400 flex items-center justify-center text-xl font-black text-black shadow-lg shadow-amber-400/20">
             🏋️
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
               Ayo-Olahraga
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Workout.Cool Engine
-              </span>
             </h1>
             <p className="text-xs text-gray-400">
               Panduan interaktif gerakan video real-time, anatomi otot, dan gym workout builder.
             </p>
-          </div>
-        </div>
-
-        {/* Global Floating Rest Timer Pill */}
-        <div className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-2xl p-2.5 px-4 shadow-xl">
-          <Clock className={`w-4 h-4 ${isTimerActive ? "text-emerald-400 animate-pulse" : "text-gray-400"}`} />
-          <div className="flex flex-col">
-            <span className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">Rest Timer</span>
-            <span className="text-base font-mono font-bold text-white leading-none">
-              {Math.floor(timerSeconds / 60)}:{String(timerSeconds % 60).padStart(2, "0")}
-            </span>
-          </div>
-          <div className="flex gap-1 ml-2">
-            <button
-              onClick={() => startRestTimer(60)}
-              className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-[11px] font-medium rounded text-gray-300"
-            >
-              +60s
-            </button>
-            <button
-              onClick={() => startRestTimer(90)}
-              className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-[11px] font-medium rounded text-emerald-400 font-semibold"
-            >
-              90s
-            </button>
-            <button
-              onClick={() => setTimerSeconds(0)}
-              className="p-1 text-gray-400 hover:text-red-400"
-              title="Reset"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
       </header>

@@ -2,7 +2,9 @@
   "css.lint.unknownAtRules": "ignore",
   "scss.lint.unknownAtRules": "ignore",
   "less.lint.unknownAtRules": "ignore",
-  "terminal.integrated.environmentChangesIndicator": "off",
+  "terminal.integrated.environmentChangesRelaunch": false,
+  "terminal.integrated.showExitAlert": false,
+  "terminal.integrated.shellIntegration.enabled": false,
   "python.terminal.shellIntegration.enabled": false,
   "python.terminal.activateEnvironment": false
 }
