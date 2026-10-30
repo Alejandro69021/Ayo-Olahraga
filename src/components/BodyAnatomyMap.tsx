@@ -63,7 +63,9 @@ const MuscleIllustration = ({
     const isSelected = selectedMuscles.includes(muscle);
     return cn(
       "cursor-pointer transition-all duration-100 ease-out",
-      isSelected ? "fill-orange-500 filter drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]" : "fill-slate-600/90 hover:fill-orange-400 group-hover:fill-orange-400 hover:filter hover:drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]",
+      isSelected
+        ? "fill-[#DFFF00] filter drop-shadow-[0_0_12px_rgba(223,255,0,0.85)]"
+        : "fill-[#1E2333] hover:fill-[#FF3E00] group-hover:fill-[#FF3E00] hover:filter hover:drop-shadow-[0_0_12px_rgba(255,62,0,0.8)]",
     );
   };
 
@@ -1283,12 +1285,13 @@ export function BodyAnatomyMap({
                 key={m.id}
                 type="button"
                 onClick={() => onToggleMuscle(m.enumVal)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${active
-                  ? "bg-orange-500/20 border-orange-500 text-orange-300 font-bold shadow-sm shadow-orange-500/10"
-                  : "bg-gray-900/60 border-gray-800 text-gray-400 hover:border-gray-700 hover:text-white"
-                  }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                  active
+                    ? "bg-[#DFFF00] border-[#DFFF00] text-black shadow-md shadow-[#DFFF00]/25 font-black"
+                    : "bg-[#141414] border-[#262626] text-gray-300 hover:border-[#3A3A3A] hover:bg-[#1A1A1A] hover:text-white"
+                }`}
               >
-                {active && <Check className="w-3 h-3 text-orange-400 stroke-[3]" />}
+                {active && <Check className="w-3.5 h-3.5 stroke-[3.5]" />}
                 {m.name}
               </button>
             );

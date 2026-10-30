@@ -30,6 +30,8 @@ import { TutorialModal } from "@/components/TutorialModal";
 import { WorkoutSummaryModal } from "@/components/WorkoutSummaryModal";
 import { FitnessTools } from "@/components/FitnessTools";
 import { LeaderboardModal } from "@/components/LeaderboardModal";
+import { ChunkyStepper } from "@/components/ChunkyStepper";
+import { EquipmentCard } from "@/components/EquipmentCard";
 import {
   BarbellIcon,
   DumbbellIcon,
@@ -335,6 +337,25 @@ export default function HomePage() {
     });
   };
 
+  // Direct set update from Chunky Stepper
+  const setSetMetricDirect = (
+    exerciseId: string,
+    setId: number,
+    field: "weight" | "reps",
+    value: number
+  ) => {
+    setActiveSets((prev) => {
+      const current = prev[exerciseId] || [];
+      const updated = current.map((s) => {
+        if (s.id === setId) {
+          return { ...s, [field]: value };
+        }
+        return s;
+      });
+      return { ...prev, [exerciseId]: updated };
+    });
+  };
+
   // End Workout Session & Generate Shareable Card (NO BROWSER ALERT)
   const finishWorkoutSession = async () => {
     const duration = Math.max(1, Math.floor((Date.now() - workoutStartTime) / 1000));
@@ -390,22 +411,22 @@ export default function HomePage() {
   return (
     <div className="flex-1 w-full max-w-4xl mx-auto px-3 sm:px-6 py-5 sm:py-8 space-y-6">
       {/* 1. TOP HEADER & SPORTY BRANDING */}
-      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-800 pb-5">
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#222222] pb-5">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-black shadow-lg shadow-orange-500/20">
-            <BrandLogo className="w-6 h-6 stroke-[2.5]" />
+          <div className="w-12 h-12 rounded-2xl bg-[#DFFF00] flex items-center justify-center text-black shadow-lg shadow-[#DFFF00]/25 border-2 border-[#EAFF4D]">
+            <BrandLogo className="w-7 h-7 stroke-[2.8]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                Ayo-Olahraga
+              <h1 className="font-metric text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-white">
+                AYO-OLAHRAGA
               </h1>
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/30">
-                Pro
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#DFFF00] text-black font-metric">
+                PRO ENGINE
               </span>
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Engine latihan kebugaran offline-first, biomekanika anatomi, dan progressive overload.
+            <p className="text-xs text-gray-400 mt-0.5 font-sans">
+              Industrial gym tracker, muscle pump heatmap, dan progressive overload.
             </p>
           </div>
         </div>
@@ -414,70 +435,70 @@ export default function HomePage() {
         <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
           {/* Connectivity Badge */}
           <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
               isOnline
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                ? "bg-[#DFFF00]/10 border-[#DFFF00]/30 text-[#DFFF00]"
                 : "bg-amber-500/10 border-amber-500/30 text-amber-400"
             }`}
           >
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-            <span className="hidden xs:inline">{isOnline ? "Online" : "Offline PWA"}</span>
+            <span className="hidden xs:inline font-metric font-bold uppercase">{isOnline ? "ONLINE" : "OFFLINE PWA"}</span>
           </div>
 
           {/* Leaderboard Trigger */}
           <button
             onClick={() => setIsLeaderboardOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs font-bold text-gray-200 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141414] hover:bg-[#1E1E1E] border border-[#262626] text-xs font-metric font-bold uppercase text-gray-200 transition-colors"
           >
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Papan Juara</span>
+            <Trophy className="w-4 h-4 text-[#DFFF00]" />
+            <span className="hidden sm:inline">PAPAN JUARA</span>
           </button>
 
           {/* Nutrition / Tools Switcher */}
           <button
             onClick={() => setActiveTab(activeTab === "builder" ? "tools" : "builder")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-xs font-metric font-bold uppercase transition-all ${
               activeTab === "tools"
-                ? "bg-orange-500 text-black border-orange-400 shadow-md shadow-orange-500/20"
-                : "bg-gray-900 hover:bg-gray-800 border-gray-800 text-gray-200"
+                ? "bg-[#DFFF00] text-black border-[#DFFF00] shadow-md shadow-[#DFFF00]/25"
+                : "bg-[#141414] hover:bg-[#1E1E1E] border-[#262626] text-gray-200"
             }`}
           >
-            <Utensils className="w-4 h-4 text-orange-400" />
-            <span>{activeTab === "tools" ? "Kembali Latihan" : "Alat & Nutrisi"}</span>
+            <Utensils className="w-4 h-4 text-[#DFFF00]" />
+            <span>{activeTab === "tools" ? "KEMBALI LATIHAN" : "ALAT & NUTRISI"}</span>
           </button>
         </div>
       </header>
 
-      {/* AUTOMATED REST TIMER FLOATING BAR (Appears dynamically when active) */}
+      {/* AUTOMATED REST TIMER FLOATING BAR */}
       {restTimer.active && (
-        <div className="sticky top-4 z-40 w-full max-w-md mx-auto p-3.5 rounded-2xl bg-gradient-to-r from-orange-950/90 via-gray-900/95 to-black/90 border border-orange-500/40 shadow-2xl backdrop-blur-md flex items-center justify-between animate-in slide-in-from-top-3 duration-200">
+        <div className="sticky top-4 z-40 w-full max-w-md mx-auto p-3.5 rounded-2xl bg-[#0A0A0A]/95 border-2 border-[#DFFF00] shadow-[0_0_30px_rgba(223,255,0,0.3)] backdrop-blur-md flex items-center justify-between animate-in slide-in-from-top-3 duration-200">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400 animate-pulse">
+            <div className="w-10 h-10 rounded-xl bg-[#DFFF00] text-black flex items-center justify-center animate-pulse">
               <Clock className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 block leading-tight">
-                Istirahat Otot (Rest Timer)
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#DFFF00] block leading-tight font-metric">
+                REST TIMER (ISTIRAHAT OTOT)
               </span>
-              <span className="text-xl font-mono font-black text-white tabular-nums">
+              <span className="font-metric text-2xl font-black text-white tabular-nums tracking-tight">
                 {Math.floor(restTimer.seconds / 60)}:
                 {String(restTimer.seconds % 60).padStart(2, "0")}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setRestTimer((p) => ({ ...p, seconds: p.seconds + 30 }))}
-              className="px-2.5 py-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-200 text-xs font-mono font-bold"
+              className="px-3 py-1.5 rounded-lg bg-[#1C1C1C] hover:bg-[#282828] text-white text-xs font-metric font-bold border border-[#303030]"
             >
-              +30s
+              +30S
             </button>
             <button
               onClick={() => setRestTimer({ active: false, seconds: 0, initial: 90 })}
-              className="px-3 py-1.5 rounded-lg bg-orange-500 text-black text-xs font-bold hover:brightness-110"
+              className="px-3.5 py-1.5 rounded-lg bg-[#DFFF00] text-black text-xs font-metric font-extrabold uppercase hover:brightness-110"
             >
-              Lewati
+              LEWATI
             </button>
           </div>
         </div>
@@ -497,17 +518,17 @@ export default function HomePage() {
               className="flex flex-col items-center cursor-pointer group shrink-0"
             >
               <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-metric font-bold text-xs transition-all ${
                   currentStep > 1
-                    ? "bg-orange-500 text-black shadow-lg shadow-orange-500/25"
+                    ? "bg-[#DFFF00] text-black shadow-md shadow-[#DFFF00]/30"
                     : currentStep === 1
-                    ? "bg-orange-500 text-black ring-4 ring-orange-500/20"
-                    : "bg-gray-800 text-gray-400"
+                    ? "bg-[#DFFF00] text-black ring-4 ring-[#DFFF00]/20 shadow-lg shadow-[#DFFF00]/40"
+                    : "bg-[#181818] text-gray-400 border border-[#2A2A2A]"
                 }`}
               >
-                {currentStep > 1 ? <Check className="w-4 h-4 stroke-[3]" /> : "1"}
+                {currentStep > 1 ? <Check className="w-4 h-4 stroke-[3.5]" /> : "1"}
               </div>
-              <span className="text-xs font-bold text-white mt-1.5">Alat</span>
+              <span className="text-xs font-bold text-white mt-1.5 font-metric tracking-wide">ALAT</span>
               <span className="text-[10px] text-gray-400 hidden xs:inline">Pilih Alat</span>
             </div>
 
@@ -515,7 +536,7 @@ export default function HomePage() {
             <div className="flex-1 flex items-center px-1.5 sm:px-3 pt-[17px]">
               <div
                 className={`w-full h-0.5 transition-colors duration-300 ${
-                  currentStep > 1 ? "bg-orange-500" : "bg-gray-800"
+                  currentStep > 1 ? "bg-[#DFFF00]" : "bg-[#242424]"
                 }`}
               />
             </div>
@@ -526,25 +547,25 @@ export default function HomePage() {
               className="flex flex-col items-center cursor-pointer group shrink-0"
             >
               <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-metric font-bold text-xs transition-all ${
                   currentStep > 2
-                    ? "bg-orange-500 text-black shadow-lg shadow-orange-500/25"
+                    ? "bg-[#DFFF00] text-black shadow-md shadow-[#DFFF00]/30"
                     : currentStep === 2
-                    ? "bg-orange-500 text-black ring-4 ring-orange-500/20"
-                    : "bg-gray-800 text-gray-400"
+                    ? "bg-[#DFFF00] text-black ring-4 ring-[#DFFF00]/20 shadow-lg shadow-[#DFFF00]/40"
+                    : "bg-[#181818] text-gray-400 border border-[#2A2A2A]"
                 }`}
               >
-                {currentStep > 2 ? <Check className="w-4 h-4 stroke-[3]" /> : "2"}
+                {currentStep > 2 ? <Check className="w-4 h-4 stroke-[3.5]" /> : "2"}
               </div>
-              <span className="text-xs font-bold text-white mt-1.5">Otot</span>
-              <span className="text-[10px] text-gray-400 hidden xs:inline">Anatomi</span>
+              <span className="text-xs font-bold text-white mt-1.5 font-metric tracking-wide">OTOT</span>
+              <span className="text-[10px] text-gray-400 hidden xs:inline">Heatmap</span>
             </div>
 
             {/* Connecting Line 2 -> 3 */}
             <div className="flex-1 flex items-center px-1.5 sm:px-3 pt-[17px]">
               <div
                 className={`w-full h-0.5 transition-colors duration-300 ${
-                  currentStep > 2 ? "bg-orange-500" : "bg-gray-800"
+                  currentStep > 2 ? "bg-[#DFFF00]" : "bg-[#242424]"
                 }`}
               />
             </div>
@@ -555,17 +576,17 @@ export default function HomePage() {
               className="flex flex-col items-center cursor-pointer group shrink-0"
             >
               <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-metric font-bold text-xs transition-all ${
                   currentStep > 3
-                    ? "bg-orange-500 text-black shadow-lg shadow-orange-500/25"
+                    ? "bg-[#DFFF00] text-black shadow-md shadow-[#DFFF00]/30"
                     : currentStep === 3
-                    ? "bg-orange-500 text-black ring-4 ring-orange-500/20"
-                    : "bg-gray-800 text-gray-400"
+                    ? "bg-[#DFFF00] text-black ring-4 ring-[#DFFF00]/20 shadow-lg shadow-[#DFFF00]/40"
+                    : "bg-[#181818] text-gray-400 border border-[#2A2A2A]"
                 }`}
               >
-                {currentStep > 3 ? <Check className="w-4 h-4 stroke-[3]" /> : "3"}
+                {currentStep > 3 ? <Check className="w-4 h-4 stroke-[3.5]" /> : "3"}
               </div>
-              <span className="text-xs font-bold text-white mt-1.5">Gerakan</span>
+              <span className="text-xs font-bold text-white mt-1.5 font-metric tracking-wide">GERAKAN</span>
               <span className="text-[10px] text-gray-400 hidden xs:inline">Rutinitas</span>
             </div>
 
@@ -573,7 +594,7 @@ export default function HomePage() {
             <div className="flex-1 flex items-center px-1.5 sm:px-3 pt-[17px]">
               <div
                 className={`w-full h-0.5 transition-colors duration-300 ${
-                  currentStep >= 4 ? "bg-orange-500" : "bg-gray-800"
+                  currentStep >= 4 ? "bg-[#DFFF00]" : "bg-[#242424]"
                 }`}
               />
             </div>
@@ -590,15 +611,15 @@ export default function HomePage() {
               }`}
             >
               <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-metric font-bold text-xs transition-all ${
                   currentStep === 4
-                    ? "bg-orange-500 text-black ring-4 ring-orange-500/20 shadow-lg shadow-orange-500/30"
-                    : "bg-gray-800 text-gray-400"
+                    ? "bg-[#DFFF00] text-black ring-4 ring-[#DFFF00]/20 shadow-lg shadow-[#DFFF00]/40 animate-volt-pulse"
+                    : "bg-[#181818] text-gray-400 border border-[#2A2A2A]"
                 }`}
               >
                 <Zap className="w-4 h-4 fill-current" />
               </div>
-              <span className="text-xs font-bold text-white mt-1.5">Tracker</span>
+              <span className="text-xs font-bold text-white mt-1.5 font-metric tracking-wide">TRACKER</span>
               <span className="text-[10px] text-gray-400 hidden xs:inline">Live Sesi</span>
             </div>
           </div>
@@ -607,67 +628,38 @@ export default function HomePage() {
           {currentStep === 1 && (
             <section className="space-y-6 animate-in fade-in duration-200">
               <div className="text-center max-w-md mx-auto">
-                <h2 className="text-lg sm:text-xl font-black text-white">
-                  Pilih Perlengkapan Latihan
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#DFFF00] font-metric block mb-1">
+                  LANGKAH 01 / PERLENGKAPAN GYM
+                </span>
+                <h2 className="font-metric text-2xl sm:text-3xl font-extrabold uppercase text-white tracking-tight">
+                  PILIH PERALATAN LATIHAN
                 </h2>
-                <p className="text-xs text-gray-400 mt-1">
-                  Pilih peralatan yang tersedia untuk menyaring katalog 42 gerakan ilmiah:
+                <p className="text-xs text-gray-400 mt-1 font-sans">
+                  Saring katalog 42 gerakan ilmiah berdasarkan ketersediaan alat di gym atau rumah Anda:
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {availableEquipments.map((eq) => {
-                  const active = selectedEquipments.includes(eq.id);
-                  const Icon = eq.IconComponent;
-                  return (
-                    <div
-                      key={eq.id}
-                      onClick={() => toggleEquipment(eq.id)}
-                      className={`relative cursor-pointer p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
-                        active
-                          ? "bg-[#141721] border-orange-500 shadow-xl shadow-orange-500/10 ring-1 ring-orange-500/40"
-                          : "bg-[#0c0e14] border-gray-800/80 hover:border-gray-700 hover:bg-[#10131c]"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
-                            active
-                              ? "bg-orange-500 text-black"
-                              : "bg-gray-800/70 text-gray-400"
-                          }`}
-                        >
-                          <Icon className="w-7 h-7" />
-                        </div>
-                        <div
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
-                            active
-                              ? "bg-orange-500 border-orange-400 text-black"
-                              : "border-gray-700 bg-gray-900"
-                          }`}
-                        >
-                          {active && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        </div>
-                      </div>
-
-                      <div className="mt-4">
-                        <h3 className="text-base font-black text-white">{eq.name}</h3>
-                        <p className="text-[11px] font-semibold text-orange-400/90 mt-0.5">
-                          {eq.subtitle}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{eq.desc}</p>
-                      </div>
-                    </div>
-                  );
-                })}
+                {availableEquipments.map((eq) => (
+                  <EquipmentCard
+                    key={eq.id}
+                    id={eq.id}
+                    name={eq.name}
+                    subtitle={eq.subtitle}
+                    desc={eq.desc}
+                    IconComponent={eq.IconComponent}
+                    selected={selectedEquipments.includes(eq.id)}
+                    onToggle={() => toggleEquipment(eq.id)}
+                  />
+                ))}
               </div>
 
               <div className="flex justify-center pt-2">
                 <button
                   onClick={() => setCurrentStep(2)}
-                  className="px-8 py-3 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-black text-xs flex items-center gap-2 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all"
+                  className="px-8 py-3.5 rounded-full bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#DFFF00]/25 transition-all active:scale-98"
                 >
-                  Lanjut ke Target Otot <ArrowRight className="w-4 h-4" />
+                  LANJUT KE TARGET OTOT <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
             </section>
@@ -698,15 +690,15 @@ export default function HomePage() {
               <div className="flex items-center justify-between pt-2">
                 <button
                   onClick={() => setCurrentStep(1)}
-                  className="px-6 py-2.5 rounded-full bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 text-xs font-bold"
+                  className="px-6 py-3 rounded-full bg-[#141414] hover:bg-[#1E1E1E] border border-[#282828] text-gray-300 font-metric font-bold text-xs uppercase tracking-wider transition-colors"
                 >
-                  Kembali
+                  KEMBALI
                 </button>
                 <button
                   onClick={() => setCurrentStep(3)}
-                  className="px-8 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-black text-xs flex items-center gap-2 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all"
+                  className="px-8 py-3.5 rounded-full bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#DFFF00]/25 transition-all active:scale-98"
                 >
-                  Lihat Gerakan ({filteredExercises.length}) <ArrowRight className="w-4 h-4" />
+                  LIHAT GERAKAN ({filteredExercises.length}) <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
             </section>
@@ -726,9 +718,9 @@ export default function HomePage() {
                 </div>
                 <button
                   onClick={startWorkoutSession}
-                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-black text-xs flex items-center gap-2 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all"
+                  className="px-6 py-2.5 rounded-full bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-md shadow-[#DFFF00]/25 transition-all active:scale-98"
                 >
-                  <Zap className="w-4 h-4 fill-current" /> Mulai Tracker Langsung
+                  <Zap className="w-4 h-4 fill-current" /> MULAI TRACKER LANGSUNG
                 </button>
               </div>
 
@@ -737,14 +729,14 @@ export default function HomePage() {
                 {selectedWorkoutList.map((exercise, idx) => (
                   <div
                     key={exercise.id}
-                    className="flex items-center gap-3 p-3.5 bg-[#0e1017] hover:bg-[#131620] border border-gray-800/80 hover:border-orange-500/40 rounded-2xl shadow-md transition-all group"
+                    className="flex items-center gap-3 p-3.5 bg-[#0E0E0E] hover:bg-[#141414] border border-[#222222] hover:border-[#DFFF00]/50 rounded-2xl shadow-lg transition-all group"
                   >
                     <GripVertical className="w-5 h-5 text-gray-600 group-hover:text-gray-400 shrink-0 cursor-grab" />
 
                     {/* Thumbnail video demo */}
                     <div
                       onClick={() => setTutorialExercise(exercise)}
-                      className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-black border border-gray-800 cursor-pointer group/thumb"
+                      className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-black border border-[#262626] cursor-pointer group/thumb"
                     >
                       <img
                         src={exercise.fullVideoImageUrl}
@@ -761,16 +753,16 @@ export default function HomePage() {
                       <div className="flex items-center gap-2">
                         <span
                           onClick={() => setTutorialExercise(exercise)}
-                          className="text-xs sm:text-sm font-bold text-white hover:text-orange-400 cursor-pointer truncate block"
+                          className="text-xs sm:text-sm font-bold text-white hover:text-[#DFFF00] cursor-pointer truncate block"
                         >
                           {exercise.name}
                         </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/30 shrink-0">
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-[#DFFF00]/15 text-[#DFFF00] border border-[#DFFF00]/30 shrink-0 font-metric tracking-wider">
                           {exercise.primaryMuscleName.split("(")[0].trim()}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
-                        <span className="text-orange-400/90 font-semibold">{exercise.equipmentLabel}</span>
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400 font-sans">
+                        <span className="text-[#DFFF00] font-bold font-metric tracking-wide">{exercise.equipmentLabel}</span>
                         <span>•</span>
                         <span>{exercise.primaryMuscleName}</span>
                       </div>
@@ -780,7 +772,7 @@ export default function HomePage() {
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => handleSwapExercise(idx)}
-                        className="p-2 rounded-xl text-gray-400 hover:text-orange-400 hover:bg-orange-500/10 border border-transparent hover:border-orange-500/20 transition-all"
+                        className="p-2 rounded-xl text-gray-400 hover:text-[#DFFF00] hover:bg-[#DFFF00]/10 border border-transparent hover:border-[#DFFF00]/20 transition-all"
                         title="Ganti dengan latihan sejenis (Same Muscle Group)"
                       >
                         <Shuffle className="w-4 h-4" />
@@ -797,39 +789,41 @@ export default function HomePage() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-gray-800">
+              <div className="flex items-center justify-between pt-4 border-t border-[#222222]">
                 <button
                   onClick={() => setCurrentStep(2)}
-                  className="px-6 py-2.5 rounded-full bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 text-xs font-bold"
+                  className="px-6 py-3 rounded-full bg-[#141414] hover:bg-[#1E1E1E] border border-[#282828] text-gray-300 font-metric font-bold text-xs uppercase tracking-wider transition-colors"
                 >
-                  Kembali
+                  KEMBALI
                 </button>
                 <button
                   onClick={startWorkoutSession}
-                  className="px-8 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-black text-xs flex items-center gap-2 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all"
+                  className="px-8 py-3.5 rounded-full bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#DFFF00]/25 transition-all active:scale-98"
                 >
-                  Mulai Latihan Sekarang <ArrowRight className="w-4 h-4" />
+                  MULAI LATIHAN SEKARANG <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
             </section>
           )}
 
-          {/* ================= STEP 4: LIVE GYM TRACKER (COMPACT MOBILE VIEWPORT LAYOUT) ================= */}
+          {/* ================= STEP 4: LIVE GYM TRACKER (FAT-FINGER FRIENDLY GYM UX) ================= */}
           {currentStep === 4 && (
             <section className="space-y-5 animate-in fade-in duration-200 max-w-md mx-auto w-full">
               {/* Tracker Top Bar */}
-              <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+              <div className="flex items-center justify-between pb-3 border-b border-[#222222]">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" /> Sesi Gym Aktif
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#DFFF00] flex items-center gap-1.5 font-metric">
+                    <span className="w-2 h-2 rounded-full bg-[#DFFF00] animate-pulse" /> SESI GYM AKTIF
                   </span>
-                  <h2 className="text-lg font-black text-white">Live Gym Tracker</h2>
+                  <h2 className="font-metric text-2xl font-black uppercase text-white tracking-tight leading-none mt-0.5">
+                    LIVE GYM TRACKER
+                  </h2>
                 </div>
                 <button
                   onClick={() => setCurrentStep(3)}
-                  className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 text-xs font-bold rounded-xl"
+                  className="px-3.5 py-1.5 bg-[#141414] hover:bg-[#1E1E1E] border border-[#282828] text-gray-300 hover:text-white font-metric font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
                 >
-                  Atur Ulang
+                  ATUR ULANG
                 </button>
               </div>
 
@@ -842,50 +836,50 @@ export default function HomePage() {
                   return (
                     <div
                       key={exercise.id}
-                      className="bg-[#0c0e14] border border-gray-800/90 rounded-2xl p-4 shadow-xl space-y-3"
+                      className="bg-[#0A0A0A] border-2 border-[#1E1E1E] rounded-3xl p-4 sm:p-5 shadow-2xl space-y-4"
                     >
                       {/* Exercise Header */}
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border ${
+                          className={`w-9 h-9 rounded-xl font-metric font-extrabold text-sm flex items-center justify-center shrink-0 border transition-all ${
                             allDone
-                              ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
-                              : "bg-gray-800 border-gray-700 text-gray-400"
+                              ? "bg-[#DFFF00] border-[#DFFF00] text-black shadow-md shadow-[#DFFF00]/25"
+                              : "bg-[#161616] border-[#2A2A2A] text-gray-300"
                           }`}
                         >
-                          {allDone ? <Check className="w-4 h-4 stroke-[3]" /> : exIdx + 1}
+                          {allDone ? <Check className="w-4 h-4 stroke-[3.5]" /> : exIdx + 1}
                         </div>
 
                         <div
                           onClick={() => setTutorialExercise(exercise)}
-                          className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-black border border-gray-800 cursor-pointer"
+                          className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-black border border-[#262626] cursor-pointer group/thumb"
                         >
                           <img
                             src={exercise.fullVideoImageUrl}
                             alt={exercise.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
                           />
-                          <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                             <Play className="w-3.5 h-3.5 text-white fill-white" />
                           </div>
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-xs sm:text-sm font-bold text-white truncate">
+                          <h3 className="text-sm sm:text-base font-black text-white truncate font-sans">
                             {exercise.name}
                           </h3>
                           <div className="flex items-center gap-2 mt-0.5">
                             <button
                               onClick={() => setTutorialExercise(exercise)}
-                              className="text-[11px] text-orange-400 hover:underline flex items-center gap-1 font-semibold"
+                              className="text-[11px] text-[#DFFF00] hover:underline flex items-center gap-1 font-bold font-metric tracking-wide"
                             >
-                              <Video className="w-3 h-3" /> Form 3D
+                              <Video className="w-3 h-3" /> FORM 3D
                             </button>
                             <span className="text-gray-600">•</span>
                             <button
                               onClick={() => handleSwapExercise(exIdx)}
-                              className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1"
-                              title="Swap gerakan ini"
+                              className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 font-sans"
+                              title="Ganti dengan latihan sejenis"
                             >
                               <Shuffle className="w-3 h-3" /> Swap
                             </button>
@@ -893,79 +887,71 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* Sets - Ultra Compact Side-by-Side Table */}
-                      <div className="space-y-2 pt-2 border-t border-gray-800/70">
+                      {/* Sets - Fat-Finger Chunky Steppers Container */}
+                      <div className="space-y-3.5 pt-3 border-t border-[#1C1C1C]">
                         {sets.map((s: any) => (
                           <div
                             key={s.id}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                            className={`p-3.5 rounded-2xl border transition-all space-y-3 ${
                               s.completed
-                                ? "bg-orange-500/5 border-orange-500/30 text-gray-300"
-                                : "bg-gray-900/60 border-gray-800 text-white"
+                                ? "bg-[#111111] border-[#2A2A2A]"
+                                : "bg-[#0E0E0E] border-[#202020]"
                             }`}
                           >
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono font-black text-gray-400">
-                                #{s.setNumber}
-                              </span>
-                              {s.isProgressive && (
-                                <span className="text-[9px] font-black uppercase px-1 py-0.2 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                                  +2.5kg 🔥
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-metric text-base font-black tracking-wide text-white">
+                                  SET #{s.setNumber}
+                                </span>
+                                {s.isProgressive && (
+                                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#DFFF00]/15 text-[#DFFF00] border border-[#DFFF00]/30 font-metric tracking-wider">
+                                    +2.5KG PROGRESSION 🔥
+                                  </span>
+                                )}
+                              </div>
+                              {s.completed && (
+                                <span className="text-[10px] font-black uppercase text-[#DFFF00] font-metric flex items-center gap-1 font-bold">
+                                  <Check className="w-3.5 h-3.5 stroke-[3.5]" /> SELESAI
                                 </span>
                               )}
                             </div>
 
-                            {/* Beban (kg) Compact Stepper */}
-                            <div className="flex items-center gap-1 bg-black/40 border border-gray-800 rounded-lg p-1">
-                              <button
-                                onClick={() => updateSetMetric(exercise.id, s.id, "weight", -2.5)}
-                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="font-mono font-bold text-xs w-10 text-center">
-                                {s.weight}
-                              </span>
-                              <span className="text-[10px] text-gray-500">kg</span>
-                              <button
-                                onClick={() => updateSetMetric(exercise.id, s.id, "weight", 2.5)}
-                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
+                            {/* 2 Chunky Steppers: BEBAN (KG) & REPS */}
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <ChunkyStepper
+                                label="Beban"
+                                unit="KG"
+                                value={s.weight}
+                                step={2.5}
+                                min={0}
+                                quickAddOptions={[2.5, 5]}
+                                onChange={(val) => setSetMetricDirect(exercise.id, s.id, "weight", val)}
+                                disabled={s.completed}
+                              />
+                              <ChunkyStepper
+                                label="Reps"
+                                unit="REPS"
+                                value={s.reps}
+                                step={1}
+                                min={1}
+                                quickAddOptions={[1, 2]}
+                                onChange={(val) => setSetMetricDirect(exercise.id, s.id, "reps", val)}
+                                disabled={s.completed}
+                              />
                             </div>
 
-                            {/* Reps Compact Stepper */}
-                            <div className="flex items-center gap-1 bg-black/40 border border-gray-800 rounded-lg p-1">
-                              <button
-                                onClick={() => updateSetMetric(exercise.id, s.id, "reps", -1)}
-                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="font-mono font-bold text-xs w-8 text-center">
-                                {s.reps}
-                              </span>
-                              <span className="text-[10px] text-gray-500">reps</span>
-                              <button
-                                onClick={() => updateSetMetric(exercise.id, s.id, "reps", 1)}
-                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            {/* Checkbox Selesai Button */}
+                            {/* Full-Width Block Selesai Button with Aggressive Volt Yellow Pulse */}
                             <button
+                              type="button"
                               onClick={() => toggleSetComplete(exercise.id, s.id)}
-                              className={`p-1.5 rounded-xl border transition-all ${
+                              className={`w-full py-3.5 px-4 rounded-xl font-metric font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 active:scale-98 ${
                                 s.completed
-                                  ? "bg-orange-500 border-orange-400 text-black shadow-md shadow-orange-500/20"
-                                  : "border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600"
+                                  ? "bg-[#DFFF00] text-black shadow-lg shadow-[#DFFF00]/35 border-2 border-[#DFFF00] animate-volt-pulse"
+                                  : "bg-[#181818] hover:bg-[#242424] text-gray-200 border border-[#2E2E2E] hover:border-[#DFFF00]/50"
                               }`}
-                              title={s.completed ? "Batal Selesai" : "Tandai Selesai & Mulai Rest Timer"}
                             >
-                              <Check className="w-4 h-4 stroke-[3]" />
+                              <Check className={`w-4 h-4 stroke-[3.5] ${s.completed ? "text-black" : "text-gray-400"}`} />
+                              <span>{s.completed ? "SET SELESAI (REST TIMER AKTIF)" : "TANDAI SELESAI SET"}</span>
                             </button>
                           </div>
                         ))}
@@ -979,9 +965,9 @@ export default function HomePage() {
               <div className="pt-2">
                 <button
                   onClick={finishWorkoutSession}
-                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 text-black font-black text-xs flex items-center justify-center gap-2 shadow-xl shadow-orange-500/25 transition-all"
+                  className="w-full py-4 rounded-2xl bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-base uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-[#DFFF00]/30 transition-all active:scale-98"
                 >
-                  <Trophy className="w-4 h-4 stroke-[2.5]" /> Selesaikan Sesi & Simpan
+                  <Trophy className="w-5 h-5 stroke-[2.5]" /> SELESAIKAN SESI & SIMPAN
                 </button>
               </div>
             </section>
