@@ -98,14 +98,14 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
           className="p-5 sm:p-6 bg-gradient-to-b from-[#141414] via-[#0A0A0A] to-[#050505] text-center relative overflow-y-auto custom-scrollbar flex-1 border-b border-[#1E1E1E]"
         >
           {/* Subtle Industrial Neon Ambient Glow */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-56 bg-[#DFFF00]/10 blur-3xl pointer-events-none rounded-full" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-56 bg-lime-400/5 blur-2xl pointer-events-none rounded-full" />
 
           {/* Heavy Athletic Trophy Header */}
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#DFFF00] text-black shadow-lg shadow-[#DFFF00]/30 mb-3 border-2 border-[#EAFF4D]">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-lime-400 text-black mb-3 border border-lime-500">
             <Trophy className="w-9 h-9 stroke-[2.5]" />
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 text-[#DFFF00] text-xs font-black uppercase tracking-widest mb-1 font-metric">
+          <div className="flex items-center justify-center gap-1.5 text-lime-400 text-xs font-black uppercase tracking-widest mb-1 font-metric">
             <Zap className="w-3.5 h-3.5 fill-current" /> WORKOUT COMPLETED
           </div>
 
@@ -197,7 +197,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
         <div className="p-4 sm:p-5 bg-[#080808] flex flex-col sm:flex-row items-center gap-2.5 border-t border-[#1C1C1C]">
           <button
             onClick={handleShareStory}
-            className="w-full sm:flex-1 py-3.5 px-4 rounded-xl font-metric font-extrabold text-sm uppercase tracking-wide flex items-center justify-center gap-2 bg-[#DFFF00] hover:bg-[#EAFF4D] text-black active:scale-98 transition-all shadow-lg shadow-[#DFFF00]/25"
+            className="w-full sm:flex-1 py-3.5 px-4 rounded-xl font-metric font-extrabold text-sm uppercase tracking-wide flex items-center justify-center gap-2 bg-lime-400 hover:bg-lime-300 text-black active:scale-98 transition-all font-bold"
           >
             <Share2 className="w-4 h-4 stroke-[2.5]" />
             {copied ? "TEKS TERSALIN!" : "BAGIKAN KE IG STORY"}

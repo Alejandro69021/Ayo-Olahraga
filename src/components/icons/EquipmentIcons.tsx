@@ -152,3 +152,35 @@ export function PlateIcon({ className = "w-8 h-8", ...props }: IconProps) {
   );
 }
 
+export function CableMachineIcon({ className = "w-8 h-8", ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      {/* Top Beam */}
+      <line x1="3" y1="4" x2="21" y2="4" strokeWidth="2.2" />
+      {/* Left Pulley Wheel */}
+      <circle cx="6" cy="6.5" r="2" fill="currentColor" fillOpacity="0.25" stroke="currentColor" />
+      {/* Right Pulley Wheel */}
+      <circle cx="18" cy="6.5" r="2" fill="currentColor" fillOpacity="0.25" stroke="currentColor" />
+      {/* Vertical Columns */}
+      <line x1="6" y1="8.5" x2="6" y2="21" strokeWidth="1.8" />
+      <line x1="18" y1="8.5" x2="18" y2="21" strokeWidth="1.8" />
+      {/* Left Weight Stack Plates */}
+      <rect x="4" y="14" width="4" height="6" rx="0.5" fill="currentColor" fillOpacity="0.3" stroke="currentColor" />
+      {/* Cable Lines converging to center handle */}
+      <path d="M6 6.5l6 5 6-5" strokeWidth="1.6" />
+      {/* Center Handle Carabiner */}
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <line x1="12" y1="13.5" x2="12" y2="16" strokeWidth="1.8" />
+      <path d="M9.5 16h5" strokeWidth="2.2" />
+    </svg>
+  );
+}

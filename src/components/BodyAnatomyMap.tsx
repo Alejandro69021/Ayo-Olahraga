@@ -64,8 +64,8 @@ const MuscleIllustration = ({
     return cn(
       "cursor-pointer transition-all duration-100 ease-out",
       isSelected
-        ? "fill-[#DFFF00] filter drop-shadow-[0_0_12px_rgba(223,255,0,0.85)]"
-        : "fill-[#1E2333] hover:fill-[#FF3E00] group-hover:fill-[#FF3E00] hover:filter hover:drop-shadow-[0_0_12px_rgba(255,62,0,0.8)]",
+        ? "fill-lime-400 filter drop-shadow-[0_0_6px_rgba(163,230,53,0.5)]"
+        : "fill-[#1E2333] hover:fill-[#FF5722] group-hover:fill-[#FF5722]",
     );
   };
 
@@ -1287,7 +1287,7 @@ export function BodyAnatomyMap({
                 onClick={() => onToggleMuscle(m.enumVal)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
                   active
-                    ? "bg-[#DFFF00] border-[#DFFF00] text-black shadow-md shadow-[#DFFF00]/25 font-black"
+                    ? "bg-lime-400 border-lime-400 text-black font-black"
                     : "bg-[#141414] border-[#262626] text-gray-300 hover:border-[#3A3A3A] hover:bg-[#1A1A1A] hover:text-white"
                 }`}
               >

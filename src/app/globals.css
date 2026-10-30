@@ -5,10 +5,9 @@
 @import "tailwindcss/utilities";
 
 :root {
-  --background: #080808;
-  --foreground: #F5F5F5;
-  --accent-volt: #DFFF00;
-  --accent-pump: #FF3E00;
+  --background: #0B0C0E;
+  --foreground: #F5F5F7;
+  --accent-lime: #CCFF00;
 }
 
 body {
@@ -21,40 +20,40 @@ body {
 /* Metric brutalist condensed font */
 .font-metric {
   font-family: "Oswald", Impact, -apple-system, sans-serif;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
-/* Custom aggressive scrollbar */
+/* Custom sleek scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #080808;
+  background: #0B0C0E;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #242424;
+  background: #24262E;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #DFFF00;
+  background: #3E4250;
 }
 
-/* Neon Volt Glow animations */
-@keyframes voltPulse {
+/* Subtle clean pulse for active state (No blinding box-shadow glow) */
+@keyframes activePulse {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(223, 255, 0, 0.4), inset 0 0 10px rgba(223, 255, 0, 0.2);
+    opacity: 1;
   }
   50% {
-    box-shadow: 0 0 30px rgba(223, 255, 0, 0.7), inset 0 0 20px rgba(223, 255, 0, 0.4);
+    opacity: 0.88;
   }
 }
 
-.animate-volt-pulse {
-  animation: voltPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.animate-active-pulse {
+  animation: activePulse 2s ease-in-out infinite;
 }
 
 /* Prevent unwanted mobile pull-to-refresh & double-tap zoom on buttons */

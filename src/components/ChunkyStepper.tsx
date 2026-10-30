@@ -16,9 +16,8 @@ interface ChunkyStepperProps {
 }
 
 /**
- * Fat-Finger Friendly Gym Stepper
- * Designed for sweaty, shaky hands in noisy gym environments.
- * Big touch targets (min 48px), high contrast, zero tiny inputs.
+ * Ergonomic Gym Stepper
+ * Compact, proportional number sizing, tactile touch targets, no harsh neon.
  */
 export const ChunkyStepper: React.FC<ChunkyStepperProps> = ({
   label,
@@ -35,9 +34,7 @@ export const ChunkyStepper: React.FC<ChunkyStepperProps> = ({
     if (typeof window !== "undefined" && "vibrate" in navigator) {
       try {
         navigator.vibrate(15);
-      } catch {
-        // Ignored
-      }
+      } catch {}
     }
   };
 
@@ -63,35 +60,35 @@ export const ChunkyStepper: React.FC<ChunkyStepperProps> = ({
   };
 
   return (
-    <div className="flex flex-col bg-[#0A0A0A] border border-[#222222] rounded-2xl p-2.5 sm:p-3 relative select-none">
+    <div className="flex flex-col bg-[#111216] border border-zinc-800/80 rounded-xl p-2.5 relative select-none">
       {/* Header Label & Unit */}
-      <div className="flex items-center justify-between px-1 mb-1.5">
-        <span className="text-[10px] font-black tracking-widest uppercase text-gray-400">
+      <div className="flex items-center justify-between px-0.5 mb-1">
+        <span className="text-[10px] font-bold tracking-wider uppercase text-zinc-400">
           {label}
         </span>
         {unit && (
-          <span className="text-[10px] font-black uppercase text-[#DFFF00] font-metric tracking-wider">
+          <span className="text-[10px] font-mono font-bold text-lime-400">
             {unit}
           </span>
         )}
       </div>
 
-      {/* Main Stepper Controls */}
-      <div className="grid grid-cols-[48px_1fr_48px] sm:grid-cols-[54px_1fr_54px] items-center gap-1.5 bg-[#141414] rounded-xl border border-[#262626] p-1">
+      {/* Main Stepper Controls: Compact & Ergonomic */}
+      <div className="flex items-center justify-between gap-1 bg-[#090A0D] rounded-lg border border-zinc-800/80 p-1">
         {/* Decrement Button */}
         <button
           type="button"
           disabled={disabled || value <= min}
           onClick={handleDecrement}
           aria-label={`Kurangi ${label}`}
-          className="h-12 sm:h-13 w-full rounded-lg bg-[#1E1E1E] hover:bg-[#2A2A2A] active:bg-[#333333] active:scale-95 text-gray-200 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center border border-[#303030]"
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 active:bg-zinc-600 active:scale-95 text-zinc-200 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-all flex items-center justify-center border border-zinc-700/60 shrink-0"
         >
-          <Minus className="w-5 h-5 stroke-[3]" />
+          <Minus className="w-4 h-4 stroke-[2.5]" />
         </button>
 
-        {/* Big Number Center Metric */}
-        <div className="flex items-baseline justify-center gap-1 py-1 px-2 overflow-hidden">
-          <span className="font-metric text-3xl sm:text-4xl font-extrabold text-white tracking-tight tabular-nums leading-none">
+        {/* Proportional Center Number */}
+        <div className="flex-1 flex items-center justify-center py-0.5 px-1 overflow-hidden">
+          <span className="font-mono text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
             {value}
           </span>
         </div>
@@ -102,22 +99,22 @@ export const ChunkyStepper: React.FC<ChunkyStepperProps> = ({
           disabled={disabled || value >= max}
           onClick={handleIncrement}
           aria-label={`Tambah ${label}`}
-          className="h-12 sm:h-13 w-full rounded-lg bg-[#1E1E1E] hover:bg-[#2A2A2A] active:bg-[#DFFF00] active:text-black active:scale-95 text-gray-200 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center border border-[#303030]"
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-zinc-800/90 hover:bg-zinc-700 active:bg-lime-400 active:text-black active:scale-95 text-zinc-200 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-all flex items-center justify-center border border-zinc-700/60 shrink-0"
         >
-          <Plus className="w-5 h-5 stroke-[3]" />
+          <Plus className="w-4 h-4 stroke-[2.5]" />
         </button>
       </div>
 
-      {/* Optional Quick Add Tags */}
+      {/* Quick Add Pills */}
       {quickAddOptions && quickAddOptions.length > 0 && (
-        <div className="flex items-center justify-center gap-1.5 mt-2 pt-1 border-t border-[#1C1C1C]">
+        <div className="flex items-center justify-center gap-1.5 mt-1.5 pt-1 border-t border-zinc-800/50">
           {quickAddOptions.map((delta) => (
             <button
               key={delta}
               type="button"
               disabled={disabled}
               onClick={() => handleQuickAdd(delta)}
-              className="px-2 py-0.5 rounded-md bg-[#161616] hover:bg-[#222222] border border-[#2A2A2A] text-[10px] font-metric font-bold text-gray-300 hover:text-[#DFFF00] transition-colors"
+              className="px-2 py-0.5 rounded bg-zinc-800/60 hover:bg-zinc-700/80 border border-zinc-700/50 text-[10px] font-mono font-bold text-zinc-400 hover:text-lime-300 transition-colors"
             >
               +{delta}
             </button>

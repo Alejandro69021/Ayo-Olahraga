@@ -13,6 +13,7 @@ import {
   Video,
   Check,
   RotateCcw,
+  Lock,
   Clock,
   Trophy,
   Scale,
@@ -21,6 +22,8 @@ import {
   Plus,
   Minus,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Wifi,
   WifiOff,
   Dumbbell
@@ -30,6 +33,7 @@ import { TutorialModal } from "@/components/TutorialModal";
 import { WorkoutSummaryModal } from "@/components/WorkoutSummaryModal";
 import { FitnessTools } from "@/components/FitnessTools";
 import { LeaderboardModal } from "@/components/LeaderboardModal";
+import { ProFeatureModal } from "@/components/ProFeatureModal";
 import { ChunkyStepper } from "@/components/ChunkyStepper";
 import { EquipmentCard } from "@/components/EquipmentCard";
 import {
@@ -38,6 +42,7 @@ import {
   BodyweightIcon,
   KettlebellIcon,
   PlateIcon,
+  CableMachineIcon,
   BrandLogo
 } from "@/components/icons/EquipmentIcons";
 import { EXERCISES_DATABASE, ExerciseDetail } from "@/data/exercises";
@@ -55,11 +60,13 @@ export default function HomePage() {
 
   // Stepper: 1 = Equipment, 2 = Muscles, 3 = Exercises Selection, 4 = Live Gym Tracker
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number>(0);
 
   // Modals
   const [tutorialExercise, setTutorialExercise] = useState<ExerciseDetail | null>(null);
   const [summarySession, setSummarySession] = useState<WorkoutSessionPayload | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
+  const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
 
   // Offline / Online state
   const [isOnline, setIsOnline] = useState<boolean>(true);
@@ -187,6 +194,14 @@ export default function HomePage() {
       desc: "Rotasi torsi batang tubuh, kekuatan genggaman, dan mobilitas bahu.",
       IconComponent: PlateIcon,
     },
+    {
+      id: "cable_machine",
+      name: "Cable & Machine",
+      subtitle: "Mesin Katrol & Smith Machine",
+      desc: "Isolasi hipertrofi dengan kurva resistensi stabil di seluruh rentang gerak.",
+      IconComponent: CableMachineIcon,
+      locked: true,
+    },
   ];
 
   const toggleEquipment = (id: string) => {
@@ -268,7 +283,11 @@ export default function HomePage() {
   };
 
   const handleDeleteExercise = (id: string) => {
-    setSelectedWorkoutList((prev) => prev.filter((item) => item.id !== id));
+    setSelectedWorkoutList((prev) => {
+      const updated = prev.filter((item) => item.id !== id);
+      setCurrentExerciseIndex((idx) => Math.min(idx, Math.max(0, updated.length - 1)));
+      return updated;
+    });
   };
 
   // Start Live Gym Tracker Session with Auto Progressive Overload Pre-filling
@@ -291,6 +310,7 @@ export default function HomePage() {
 
     setActiveSets(initialSets);
     setWorkoutStartTime(Date.now());
+    setCurrentExerciseIndex(0);
     setCurrentStep(4);
   };
 
@@ -313,6 +333,20 @@ export default function HomePage() {
         }
         return s;
       });
+
+      const allWillBeCompleted = updated.length > 0 && updated.every((s) => s.completed);
+      if (allWillBeCompleted) {
+        setTimeout(() => {
+          setCurrentExerciseIndex((prevIdx) => {
+            const currentEx = selectedWorkoutList[prevIdx];
+            if (currentEx && currentEx.id === exerciseId && prevIdx < selectedWorkoutList.length - 1) {
+              return prevIdx + 1;
+            }
+            return prevIdx;
+          });
+        }, 600);
+      }
+
       return { ...prev, [exerciseId]: updated };
     });
   };
@@ -412,18 +446,34 @@ export default function HomePage() {
     <div className="flex-1 w-full max-w-4xl mx-auto px-3 sm:px-6 py-5 sm:py-8 space-y-6">
       {/* 1. TOP HEADER & SPORTY BRANDING */}
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#222222] pb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#DFFF00] flex items-center justify-center text-black shadow-lg shadow-[#DFFF00]/25 border-2 border-[#EAFF4D]">
+        <div
+          onClick={() => {
+            setCurrentStep(1);
+            setActiveTab("builder");
+          }}
+          className="flex items-center gap-3 cursor-pointer group select-none"
+          title="Klik untuk kembali ke halaman utama"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-lime-400 flex items-center justify-center text-black border border-lime-300 group-hover:scale-105 transition-transform">
             <BrandLogo className="w-7 h-7 stroke-[2.8]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-metric text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-white">
+              <h1 className="font-metric text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-white group-hover:text-lime-400 transition-colors">
                 AYO-OLAHRAGA
               </h1>
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#DFFF00] text-black font-metric">
-                PRO ENGINE
-              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsProModalOpen(true);
+                }}
+                className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-400 hover:bg-amber-300 text-black font-metric flex items-center gap-1 transition-all shadow-sm"
+                title="Buka Pratinjau Ayo-Olahraga Pro Suite"
+              >
+                <span>PRO SUITE</span>
+                <Lock className="w-2.5 h-2.5 stroke-[3]" />
+              </button>
             </div>
             <p className="text-xs text-gray-400 mt-0.5 font-sans">
               Industrial gym tracker, muscle pump heatmap, dan progressive overload.
@@ -437,7 +487,7 @@ export default function HomePage() {
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
               isOnline
-                ? "bg-[#DFFF00]/10 border-[#DFFF00]/30 text-[#DFFF00]"
+                ? "bg-lime-400/10 border-lime-400/30 text-lime-400"
                 : "bg-amber-500/10 border-amber-500/30 text-amber-400"
             }`}
           >
@@ -450,7 +500,7 @@ export default function HomePage() {
             onClick={() => setIsLeaderboardOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141414] hover:bg-[#1E1E1E] border border-[#262626] text-xs font-metric font-bold uppercase text-gray-200 transition-colors"
           >
-            <Trophy className="w-4 h-4 text-[#DFFF00]" />
+            <Trophy className="w-4 h-4 text-lime-400" />
             <span className="hidden sm:inline">PAPAN JUARA</span>
           </button>
 
@@ -459,11 +509,11 @@ export default function HomePage() {
             onClick={() => setActiveTab(activeTab === "builder" ? "tools" : "builder")}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-xs font-metric font-bold uppercase transition-all ${
               activeTab === "tools"
-                ? "bg-[#DFFF00] text-black border-[#DFFF00] shadow-md shadow-[#DFFF00]/25"
+                ? "bg-lime-400 text-black border-lime-400 font-bold"
                 : "bg-[#141414] hover:bg-[#1E1E1E] border-[#262626] text-gray-200"
             }`}
           >
-            <Utensils className="w-4 h-4 text-[#DFFF00]" />
+            <Utensils className="w-4 h-4 text-lime-400" />
             <span>{activeTab === "tools" ? "KEMBALI LATIHAN" : "ALAT & NUTRISI"}</span>
           </button>
         </div>
@@ -471,13 +521,13 @@ export default function HomePage() {
 
       {/* AUTOMATED REST TIMER FLOATING BAR */}
       {restTimer.active && (
-        <div className="sticky top-4 z-40 w-full max-w-md mx-auto p-3.5 rounded-2xl bg-[#0A0A0A]/95 border-2 border-[#DFFF00] shadow-[0_0_30px_rgba(223,255,0,0.3)] backdrop-blur-md flex items-center justify-between animate-in slide-in-from-top-3 duration-200">
+        <div className="sticky top-4 z-40 w-full max-w-md mx-auto p-3.5 rounded-2xl bg-[#0E1015]/95 border border-zinc-700 shadow-xl backdrop-blur-md flex items-center justify-between animate-in slide-in-from-top-3 duration-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#DFFF00] text-black flex items-center justify-center animate-pulse">
+            <div className="w-10 h-10 rounded-xl bg-lime-400 text-black flex items-center justify-center">
               <Clock className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#DFFF00] block leading-tight font-metric">
+              <span className="text-[10px] font-black uppercase tracking-wider text-lime-400 block leading-tight font-metric">
                 REST TIMER (ISTIRAHAT OTOT)
               </span>
               <span className="font-metric text-2xl font-black text-white tabular-nums tracking-tight">
@@ -490,13 +540,13 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setRestTimer((p) => ({ ...p, seconds: p.seconds + 30 }))}
-              className="px-3 py-1.5 rounded-lg bg-[#1C1C1C] hover:bg-[#282828] text-white text-xs font-metric font-bold border border-[#303030]"
+              className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-metric font-bold border border-zinc-700"
             >
               +30S
             </button>
             <button
               onClick={() => setRestTimer({ active: false, seconds: 0, initial: 90 })}
-              className="px-3.5 py-1.5 rounded-lg bg-[#DFFF00] text-black text-xs font-metric font-extrabold uppercase hover:brightness-110"
+              className="px-3.5 py-1.5 rounded-lg bg-lime-400 hover:bg-lime-300 text-black text-xs font-metric font-extrabold uppercase transition-colors"
             >
               LEWATI
             </button>
@@ -650,6 +700,8 @@ export default function HomePage() {
                     IconComponent={eq.IconComponent}
                     selected={selectedEquipments.includes(eq.id)}
                     onToggle={() => toggleEquipment(eq.id)}
+                    locked={eq.locked}
+                    onLockedClick={() => setIsProModalOpen(true)}
                   />
                 ))}
               </div>
@@ -657,7 +709,7 @@ export default function HomePage() {
               <div className="flex justify-center pt-2">
                 <button
                   onClick={() => setCurrentStep(2)}
-                  className="px-8 py-3.5 rounded-full bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#DFFF00]/25 transition-all active:scale-98"
+                  className="px-8 py-3.5 rounded-full bg-lime-400 hover:bg-lime-300 text-black font-metric font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-all active:scale-98"
                 >
                   LANJUT KE TARGET OTOT <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
@@ -696,7 +748,7 @@ export default function HomePage() {
                 </button>
                 <button
                   onClick={() => setCurrentStep(3)}
-                  className="px-8 py-3.5 rounded-full bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#DFFF00]/25 transition-all active:scale-98"
+                  className="px-8 py-3.5 rounded-full bg-lime-400 hover:bg-lime-300 text-black font-metric font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-all active:scale-98"
                 >
                   LIHAT GERAKAN ({filteredExercises.length}) <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
@@ -718,7 +770,7 @@ export default function HomePage() {
                 </div>
                 <button
                   onClick={startWorkoutSession}
-                  className="px-6 py-2.5 rounded-full bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-xs uppercase tracking-wider flex items-center gap-2 shadow-md shadow-[#DFFF00]/25 transition-all active:scale-98"
+                  className="px-6 py-2.5 rounded-full bg-lime-400 hover:bg-lime-300 text-black font-metric font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all active:scale-98"
                 >
                   <Zap className="w-4 h-4 fill-current" /> MULAI TRACKER LANGSUNG
                 </button>
@@ -798,7 +850,7 @@ export default function HomePage() {
                 </button>
                 <button
                   onClick={startWorkoutSession}
-                  className="px-8 py-3.5 rounded-full bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#DFFF00]/25 transition-all active:scale-98"
+                  className="px-8 py-3.5 rounded-full bg-lime-400 hover:bg-lime-300 text-black font-metric font-bold text-sm uppercase tracking-wider flex items-center gap-2 transition-all active:scale-98"
                 >
                   MULAI LATIHAN SEKARANG <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
@@ -806,168 +858,321 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* ================= STEP 4: LIVE GYM TRACKER (FAT-FINGER FRIENDLY GYM UX) ================= */}
+          {/* ================= STEP 4: LIVE GYM TRACKER (3D COVER FLOW & PEAKING CARD CAROUSEL) ================= */}
           {currentStep === 4 && (
-            <section className="space-y-5 animate-in fade-in duration-200 max-w-md mx-auto w-full">
-              {/* Tracker Top Bar */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#222222]">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#DFFF00] flex items-center gap-1.5 font-metric">
-                    <span className="w-2 h-2 rounded-full bg-[#DFFF00] animate-pulse" /> SESI GYM AKTIF
-                  </span>
-                  <h2 className="font-metric text-2xl font-black uppercase text-white tracking-tight leading-none mt-0.5">
-                    LIVE GYM TRACKER
-                  </h2>
-                </div>
+            <section className="space-y-4 animate-in fade-in duration-200 max-w-xl sm:max-w-2xl mx-auto w-full">
+              {/* Tracker Top Bar: Exit button & Exercise counter */}
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800 px-1">
                 <button
-                  onClick={() => setCurrentStep(3)}
-                  className="px-3.5 py-1.5 bg-[#141414] hover:bg-[#1E1E1E] border border-[#282828] text-gray-300 hover:text-white font-metric font-bold text-xs uppercase tracking-wider rounded-xl transition-colors"
+                  type="button"
+                  onClick={() => setCurrentStep(1)}
+                  className="px-3.5 py-1.5 bg-[#141414] hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-metric font-bold text-xs uppercase tracking-wider rounded-xl transition-colors flex items-center gap-1.5"
+                  title="Keluar dari sesi gym"
                 >
-                  ATUR ULANG
+                  <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>KELUAR SESI</span>
                 </button>
+
+                <div className="text-right">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-lime-400 flex items-center justify-end gap-1.5 font-metric">
+                    <span className="w-2 h-2 rounded-full bg-lime-400" /> SESI AKTIF
+                  </span>
+                  <span className="font-metric text-xs font-bold text-zinc-400">
+                    Latihan {currentExerciseIndex + 1} dari {selectedWorkoutList.length}
+                  </span>
+                </div>
               </div>
 
-              {/* Active Exercise Cards in Centered Mobile Container */}
-              <div className="space-y-4">
-                {selectedWorkoutList.map((exercise, exIdx) => {
-                  const sets = activeSets[exercise.id] || [];
-                  const allDone = sets.length > 0 && sets.every((s) => s.completed);
+              {/* Exercise Indicators (Pills / Dots) for Quick Direct Jump */}
+              <div className="flex items-center justify-center gap-1.5 py-1">
+                {selectedWorkoutList.map((ex, idx) => {
+                  const exSets = activeSets[ex.id] || [];
+                  const isDone = exSets.length > 0 && exSets.every((s: any) => s.completed);
+                  const isCurrent = idx === currentExerciseIndex;
 
                   return (
-                    <div
-                      key={exercise.id}
-                      className="bg-[#0A0A0A] border-2 border-[#1E1E1E] rounded-3xl p-4 sm:p-5 shadow-2xl space-y-4"
-                    >
-                      {/* Exercise Header */}
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-9 h-9 rounded-xl font-metric font-extrabold text-sm flex items-center justify-center shrink-0 border transition-all ${
-                            allDone
-                              ? "bg-[#DFFF00] border-[#DFFF00] text-black shadow-md shadow-[#DFFF00]/25"
-                              : "bg-[#161616] border-[#2A2A2A] text-gray-300"
-                          }`}
-                        >
-                          {allDone ? <Check className="w-4 h-4 stroke-[3.5]" /> : exIdx + 1}
-                        </div>
-
-                        <div
-                          onClick={() => setTutorialExercise(exercise)}
-                          className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-black border border-[#262626] cursor-pointer group/thumb"
-                        >
-                          <img
-                            src={exercise.fullVideoImageUrl}
-                            alt={exercise.name}
-                            className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
-                          />
-                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                            <Play className="w-3.5 h-3.5 text-white fill-white" />
-                          </div>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-sm sm:text-base font-black text-white truncate font-sans">
-                            {exercise.name}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <button
-                              onClick={() => setTutorialExercise(exercise)}
-                              className="text-[11px] text-[#DFFF00] hover:underline flex items-center gap-1 font-bold font-metric tracking-wide"
-                            >
-                              <Video className="w-3 h-3" /> FORM 3D
-                            </button>
-                            <span className="text-gray-600">•</span>
-                            <button
-                              onClick={() => handleSwapExercise(exIdx)}
-                              className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 font-sans"
-                              title="Ganti dengan latihan sejenis"
-                            >
-                              <Shuffle className="w-3 h-3" /> Swap
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Sets - Fat-Finger Chunky Steppers Container */}
-                      <div className="space-y-3.5 pt-3 border-t border-[#1C1C1C]">
-                        {sets.map((s: any) => (
-                          <div
-                            key={s.id}
-                            className={`p-3.5 rounded-2xl border transition-all space-y-3 ${
-                              s.completed
-                                ? "bg-[#111111] border-[#2A2A2A]"
-                                : "bg-[#0E0E0E] border-[#202020]"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="font-metric text-base font-black tracking-wide text-white">
-                                  SET #{s.setNumber}
-                                </span>
-                                {s.isProgressive && (
-                                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#DFFF00]/15 text-[#DFFF00] border border-[#DFFF00]/30 font-metric tracking-wider">
-                                    +2.5KG PROGRESSION 🔥
-                                  </span>
-                                )}
-                              </div>
-                              {s.completed && (
-                                <span className="text-[10px] font-black uppercase text-[#DFFF00] font-metric flex items-center gap-1 font-bold">
-                                  <Check className="w-3.5 h-3.5 stroke-[3.5]" /> SELESAI
-                                </span>
-                              )}
-                            </div>
-
-                            {/* 2 Chunky Steppers: BEBAN (KG) & REPS */}
-                            <div className="grid grid-cols-2 gap-2.5">
-                              <ChunkyStepper
-                                label="Beban"
-                                unit="KG"
-                                value={s.weight}
-                                step={2.5}
-                                min={0}
-                                quickAddOptions={[2.5, 5]}
-                                onChange={(val) => setSetMetricDirect(exercise.id, s.id, "weight", val)}
-                                disabled={s.completed}
-                              />
-                              <ChunkyStepper
-                                label="Reps"
-                                unit="REPS"
-                                value={s.reps}
-                                step={1}
-                                min={1}
-                                quickAddOptions={[1, 2]}
-                                onChange={(val) => setSetMetricDirect(exercise.id, s.id, "reps", val)}
-                                disabled={s.completed}
-                              />
-                            </div>
-
-                            {/* Full-Width Block Selesai Button with Aggressive Volt Yellow Pulse */}
-                            <button
-                              type="button"
-                              onClick={() => toggleSetComplete(exercise.id, s.id)}
-                              className={`w-full py-3.5 px-4 rounded-xl font-metric font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 active:scale-98 ${
-                                s.completed
-                                  ? "bg-[#DFFF00] text-black shadow-lg shadow-[#DFFF00]/35 border-2 border-[#DFFF00] animate-volt-pulse"
-                                  : "bg-[#181818] hover:bg-[#242424] text-gray-200 border border-[#2E2E2E] hover:border-[#DFFF00]/50"
-                              }`}
-                            >
-                              <Check className={`w-4 h-4 stroke-[3.5] ${s.completed ? "text-black" : "text-gray-400"}`} />
-                              <span>{s.completed ? "SET SELESAI (REST TIMER AKTIF)" : "TANDAI SELESAI SET"}</span>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <button
+                      key={ex.id}
+                      type="button"
+                      onClick={() => setCurrentExerciseIndex(idx)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        isCurrent
+                          ? "w-8 bg-lime-400"
+                          : isDone
+                          ? "w-3 bg-zinc-500"
+                          : "w-2 bg-zinc-800 hover:bg-zinc-700"
+                      }`}
+                      title={`${idx + 1}. ${ex.name}`}
+                    />
                   );
                 })}
               </div>
 
-              {/* Complete Workout Action Button (NO BROWSER ALERT) */}
-              <div className="pt-2">
-                <button
-                  onClick={finishWorkoutSession}
-                  className="w-full py-4 rounded-2xl bg-[#DFFF00] hover:bg-[#EAFF4D] text-black font-metric font-extrabold text-base uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-[#DFFF00]/30 transition-all active:scale-98"
+              {/* 3D COVER FLOW / PEEKING CARDS CAROUSEL CONTAINER */}
+              <div className="relative overflow-hidden w-full py-2">
+                {/* Floating Chevron Navigation Buttons (Nike Airmax Style) */}
+                {currentExerciseIndex > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentExerciseIndex((prev) => Math.max(0, prev - 1))}
+                    aria-label="Latihan Sebelumnya"
+                    className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-white border border-zinc-700 shadow-2xl flex items-center justify-center transition-all backdrop-blur-md"
+                  >
+                    <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+                  </button>
+                )}
+
+                {currentExerciseIndex < selectedWorkoutList.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentExerciseIndex((prev) => Math.min(selectedWorkoutList.length - 1, prev + 1))}
+                    aria-label="Latihan Berikutnya"
+                    className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-white border border-zinc-700 shadow-2xl flex items-center justify-center transition-all backdrop-blur-md"
+                  >
+                    <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+                  </button>
+                )}
+
+                {/* Sliding Cards Track with Math-Exact Symmetric Peeking */}
+                <div
+                  className="flex transition-transform duration-500 ease-out will-change-transform items-start"
+                  style={{
+                    transform: `translateX(calc(11% - ${currentExerciseIndex} * (78% + 14px)))`,
+                  }}
                 >
-                  <Trophy className="w-5 h-5 stroke-[2.5]" /> SELESAIKAN SESI & SIMPAN
+                  {selectedWorkoutList.map((exercise, exIdx) => {
+                    const sets = activeSets[exercise.id] || [];
+                    const allDone = sets.length > 0 && sets.every((s) => s.completed);
+                    const isLastExercise = exIdx === selectedWorkoutList.length - 1;
+                    const isActive = exIdx === currentExerciseIndex;
+
+                    return (
+                      <div
+                        key={exercise.id}
+                        onClick={() => {
+                          if (!isActive) setCurrentExerciseIndex(exIdx);
+                        }}
+                        style={{ width: "78%", marginRight: "14px" }}
+                        className={`shrink-0 transition-all duration-500 ease-out rounded-3xl select-none ${
+                          isActive
+                            ? "scale-100 opacity-100 z-20 pointer-events-auto"
+                            : "scale-[0.90] opacity-35 hover:opacity-60 z-10 cursor-pointer pointer-events-auto"
+                        }`}
+                      >
+                        <div
+                          className={`rounded-3xl p-4 sm:p-5 space-y-4 transition-all duration-500 ${
+                            isActive
+                              ? "bg-[#0E1015] border-2 border-lime-400/40 shadow-[0_10px_35px_rgba(0,0,0,0.8)]"
+                              : "bg-[#0A0B0E] border border-zinc-800 shadow-lg"
+                          }`}
+                        >
+                          {/* Exercise Header */}
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-9 h-9 rounded-xl font-metric font-extrabold text-sm flex items-center justify-center shrink-0 border transition-all ${
+                                allDone
+                                  ? "bg-lime-400 border-lime-400 text-black font-bold"
+                                  : "bg-zinc-800 border-zinc-700 text-zinc-200"
+                              }`}
+                            >
+                              {allDone ? <Check className="w-4 h-4 stroke-[3.5]" /> : exIdx + 1}
+                            </div>
+
+                            <div
+                              onClick={(e) => {
+                                if (isActive) {
+                                  e.stopPropagation();
+                                  setTutorialExercise(exercise);
+                                }
+                              }}
+                              className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-black border border-zinc-800 cursor-pointer group/thumb"
+                            >
+                              <img
+                                src={exercise.fullVideoImageUrl}
+                                alt={exercise.name}
+                                className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
+                              />
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                <Play className="w-3.5 h-3.5 text-white fill-white" />
+                              </div>
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm sm:text-base font-black text-white truncate font-sans">
+                                {exercise.name}
+                              </h3>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    if (isActive) {
+                                      e.stopPropagation();
+                                      setTutorialExercise(exercise);
+                                    }
+                                  }}
+                                  className="text-[11px] text-lime-400 hover:underline flex items-center gap-1 font-bold font-metric tracking-wide"
+                                >
+                                  <Video className="w-3 h-3" /> FORM 3D
+                                </button>
+                                <span className="text-zinc-600">•</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    if (isActive) {
+                                      e.stopPropagation();
+                                      handleSwapExercise(exIdx);
+                                    }
+                                  }}
+                                  className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 font-sans"
+                                  title="Ganti dengan latihan sejenis"
+                                >
+                                  <Shuffle className="w-3 h-3" /> Swap
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sets - Fat-Finger Chunky Steppers */}
+                          <div className="space-y-3 pt-3 border-t border-zinc-800/80">
+                            {sets.map((s) => (
+                              <div
+                                key={s.id}
+                                className={`p-3.5 rounded-2xl border transition-all space-y-3 ${
+                                  s.completed
+                                    ? "bg-[#12141A] border-zinc-800"
+                                    : "bg-[#0F1015] border-zinc-800/60"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-metric text-base font-black tracking-wide text-white">
+                                      SET #{s.setNumber}
+                                    </span>
+                                    {s.isProgressive && (
+                                      <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-lime-400/15 text-lime-400 border border-lime-400/30 font-metric tracking-wider">
+                                        +2.5KG PROGRESSION 🔥
+                                      </span>
+                                    )}
+                                  </div>
+                                  {s.completed && (
+                                    <span className="text-[10px] font-black uppercase text-lime-400 font-metric flex items-center gap-1 font-bold">
+                                      <Check className="w-3.5 h-3.5 stroke-[3.5]" /> SELESAI
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* 2 Chunky Steppers: BEBAN (KG) & REPS */}
+                                <div className="grid grid-cols-2 gap-2.5">
+                                  <ChunkyStepper
+                                    label="Beban"
+                                    unit="KG"
+                                    value={s.weight}
+                                    step={2.5}
+                                    min={0}
+                                    quickAddOptions={[2.5, 5]}
+                                    onChange={(val) => setSetMetricDirect(exercise.id, s.id, "weight", val)}
+                                    disabled={s.completed || !isActive}
+                                  />
+                                  <ChunkyStepper
+                                    label="Reps"
+                                    unit="REPS"
+                                    value={s.reps}
+                                    step={1}
+                                    min={1}
+                                    quickAddOptions={[1, 2]}
+                                    onChange={(val) => setSetMetricDirect(exercise.id, s.id, "reps", val)}
+                                    disabled={s.completed || !isActive}
+                                  />
+                                </div>
+
+                                {/* Full-Width Block Selesai Button */}
+                                <button
+                                  type="button"
+                                  disabled={!isActive}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSetComplete(exercise.id, s.id);
+                                  }}
+                                  className={`w-full py-3.5 px-4 rounded-xl font-metric font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 active:scale-98 ${
+                                    s.completed
+                                      ? "bg-lime-400 hover:bg-lime-300 text-black border border-lime-500 font-bold"
+                                      : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/80 hover:border-lime-400/50"
+                                  }`}
+                                >
+                                  <Check className={`w-4 h-4 stroke-[3.5] ${s.completed ? "text-black" : "text-zinc-400"}`} />
+                                  <span>{s.completed ? "SET SELESAI (REST TIMER AKTIF)" : "TANDAI SELESAI SET"}</span>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Action inside card */}
+                          <div className="pt-2">
+                            {!isLastExercise ? (
+                              <button
+                                type="button"
+                                disabled={!isActive}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCurrentExerciseIndex(exIdx + 1);
+                                }}
+                                className="w-full py-3.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-metric font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-zinc-700 transition-colors"
+                              >
+                                <span>LANJUT KE GERAKAN BERIKUTNYA</span>
+                                <ArrowRight className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={!isActive}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  finishWorkoutSession();
+                                }}
+                                className="w-full py-4 rounded-2xl bg-lime-400 hover:bg-lime-300 text-black font-metric font-extrabold text-base uppercase tracking-wider flex items-center justify-center gap-2 border border-lime-500 shadow-xl transition-all active:scale-98"
+                              >
+                                <Trophy className="w-5 h-5 stroke-[2.5]" /> SELESAIKAN SESI & SIMPAN
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Bottom Navigation & Skip Without Tracking Link */}
+              <div className="flex items-center justify-between pt-1 px-1">
+                {currentExerciseIndex > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentExerciseIndex((prev) => Math.max(0, prev - 1))}
+                    className="text-xs font-semibold text-zinc-400 hover:text-white flex items-center gap-1.5 py-1.5 transition-colors"
+                  >
+                    <span>← Gerakan Sebelumnya</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentExerciseIndex < selectedWorkoutList.length - 1) {
+                      setCurrentExerciseIndex((prev) => prev + 1);
+                    } else {
+                      finishWorkoutSession();
+                    }
+                  }}
+                  className="text-xs font-semibold text-zinc-400 hover:text-lime-400 flex items-center gap-1.5 ml-auto py-1.5 transition-colors group"
+                >
+                  <span className="underline-offset-4 group-hover:underline">
+                    {currentExerciseIndex < selectedWorkoutList.length - 1
+                      ? "Lanjut tanpa mengisi tracking"
+                      : "Selesaikan sesi tanpa mengisi tracking"}
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </div>
             </section>
@@ -997,6 +1202,12 @@ export default function HomePage() {
       <LeaderboardModal
         isOpen={isLeaderboardOpen}
         onClose={() => setIsLeaderboardOpen(false)}
+      />
+
+      {/* Pro Tier Feature Modal */}
+      <ProFeatureModal
+        isOpen={isProModalOpen}
+        onClose={() => setIsProModalOpen(false)}
       />
     </div>
   );
