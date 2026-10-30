@@ -1,48 +1,69 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
-  Dumbbell,
-  Flame,
-  Trophy,
   Play,
   CheckCircle2,
   Layers,
-  ChevronRight,
-  ChevronLeft,
-  BookOpen,
   Sparkles,
   Zap,
-  Filter,
-  Info,
   Shuffle,
   Trash2,
   GripVertical,
   Video,
-  Pause,
-  Hourglass,
   Check,
+  RotateCcw,
+  Clock,
+  Trophy,
+  Scale,
+  Utensils,
+  Flame,
+  Plus,
+  Minus,
+  ArrowRight,
+  Wifi,
+  WifiOff,
+  Dumbbell
 } from "lucide-react";
 import { BodyAnatomyMap, ExerciseAttributeValueEnum, MUSCLE_GROUPS } from "@/components/BodyAnatomyMap";
 import { TutorialModal } from "@/components/TutorialModal";
+import { WorkoutSummaryModal } from "@/components/WorkoutSummaryModal";
+import { FitnessTools } from "@/components/FitnessTools";
+import { LeaderboardModal } from "@/components/LeaderboardModal";
+import {
+  BarbellIcon,
+  DumbbellIcon,
+  BodyweightIcon,
+  KettlebellIcon,
+  PlateIcon,
+  BrandLogo
+} from "@/components/icons/EquipmentIcons";
 import { EXERCISES_DATABASE, ExerciseDetail } from "@/data/exercises";
-
-const MUSCLE_BADGE_COLORS: Record<string, string> = {
-  C: "bg-emerald-500 text-black", // Chest
-  S: "bg-amber-500 text-black", // Shoulders
-  B: "bg-purple-500 text-white", // Biceps
-  T: "bg-violet-500 text-white", // Triceps / Traps
-  Q: "bg-blue-500 text-white", // Quads / Legs
-  L: "bg-sky-500 text-black", // Lats / Back
-  H: "bg-red-500 text-white", // Hamstrings
-  A: "bg-pink-500 text-black", // Abs / Core
-};
+import {
+  saveWorkoutSessionOffline,
+  getAllSessionsOffline,
+  syncPendingWorkouts,
+  getRecommendedWeightAndReps,
+  WorkoutSessionPayload
+} from "@/lib/offline-storage";
 
 export default function HomePage() {
-  // Wizard steps: 1 = Equipment, 2 = Muscles, 3 = Exercises & Tutorial, 4 = Live Session Tracker
+  // Navigation / View Tabs: 'builder' | 'tools'
+  const [activeTab, setActiveTab] = useState<"builder" | "tools">("builder");
+
+  // Stepper: 1 = Equipment, 2 = Muscles, 3 = Exercises Selection, 4 = Live Gym Tracker
   const [currentStep, setCurrentStep] = useState<number>(1);
 
-  // Step 1: Equipment Selection (Barbell, Bodyweight, Dumbbell, Kettlebell, Plate)
+  // Modals
+  const [tutorialExercise, setTutorialExercise] = useState<ExerciseDetail | null>(null);
+  const [summarySession, setSummarySession] = useState<WorkoutSessionPayload | null>(null);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
+
+  // Offline / Online state
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [offlineSessions, setOfflineSessions] = useState<WorkoutSessionPayload[]>([]);
+
+  // Step 1: Equipment Selection
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([
     "barbell",
     "dumbbell",
@@ -51,55 +72,118 @@ export default function HomePage() {
     "plate",
   ]);
 
-  // Step 2: Muscle Selection (using exact ExerciseAttributeValueEnum from workout-cool)
+  // Step 2: Muscles Selection
   const [selectedMuscles, setSelectedMuscles] = useState<ExerciseAttributeValueEnum[]>([
     ExerciseAttributeValueEnum.CHEST,
   ]);
 
-  // Modal Tutorial state
-  const [tutorialExercise, setTutorialExercise] = useState<ExerciseDetail | null>(null);
-
-  // Active workout exercises state
+  // Step 3: Selected Routine Exercises
   const [selectedWorkoutList, setSelectedWorkoutList] = useState<ExerciseDetail[]>([]);
 
-  // Live gym sets state for tracker: { [exerciseId]: [{ id, setNumber, weight, reps, completed }] }
+  // Step 4: Live Gym Tracker State
+  // { [exerciseId]: [{ id, setNumber, weight, reps, completed, isProgressive }] }
   const [activeSets, setActiveSets] = useState<{ [exerciseId: string]: any[] }>({});
+  const [workoutStartTime, setWorkoutStartTime] = useState<number>(0);
 
+  // Automated Rest Timer State
+  const [restTimer, setRestTimer] = useState<{
+    active: boolean;
+    seconds: number;
+    initial: number;
+  }>({
+    active: false,
+    seconds: 0,
+    initial: 90,
+  });
+
+  // Listen to connectivity & initialize historical offline data
+  useEffect(() => {
+    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncPendingWorkouts();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    getAllSessionsOffline().then((sessions) => {
+      setOfflineSessions(sessions);
+    });
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // Rest Timer ticking effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (restTimer.active && restTimer.seconds > 0) {
+      interval = setInterval(() => {
+        setRestTimer((prev) => {
+          if (prev.seconds <= 1) {
+            // Vibrate device on completion
+            if (typeof window !== "undefined" && "vibrate" in navigator) {
+              navigator.vibrate([200, 100, 200]);
+            }
+            return { ...prev, active: false, seconds: 0 };
+          }
+          return { ...prev, seconds: prev.seconds - 1 };
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [restTimer.active, restTimer.seconds]);
+
+  // Scroll to top whenever step or active tab changes so header/page is never cut off
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [currentStep, activeTab]);
+
+  // Equipment List with bespoke vector icons (zero emojis)
   const availableEquipments = [
     {
       id: "barbell",
       name: "Barbell",
       subtitle: "Tongkat & Plat Beban",
-      desc: "Latihan beban bebas untuk kekuatan maksimal dan hipertrofi.",
-      icon: "🏋️‍♂️",
+      desc: "Latihan beban kompaun untuk kekuatan maksimal dan densitas otot.",
+      IconComponent: BarbellIcon,
     },
     {
       id: "dumbbell",
       name: "Dumbbell",
-      subtitle: "Beban Bebas Tangan",
-      desc: "Melatih keseimbangan otot kiri-kanan serta variasi isolasi luas.",
-      icon: "🦾",
+      subtitle: "Beban Bebas Unilateral",
+      desc: "Rentang gerak lebih dalam, mengoreksi ketimpangan otot kiri-kanan.",
+      IconComponent: DumbbellIcon,
     },
     {
       id: "bodyweight",
       name: "Bodyweight",
-      subtitle: "Kalistenik & Beban Tubuh",
-      desc: "Tanpa alat gym, ideal untuk latihan di rumah dan penguatan sendi.",
-      icon: "🧘",
+      subtitle: "Kalistenik Murni",
+      desc: "Kekuatan fungsional berbasis berat tubuh tanpa alat luar.",
+      IconComponent: BodyweightIcon,
     },
     {
       id: "kettlebell",
       name: "Kettlebell",
-      subtitle: "Beban Besi Gagang",
-      desc: "Gerakan balistik eksplosif, membakar lemak, dan menguatkan pinggul.",
-      icon: "🔔",
+      subtitle: "Beban Besi Balistik",
+      desc: "Daya ledak panggul, pembakaran lemak intensif, dan kekuatan grip.",
+      IconComponent: KettlebellIcon,
     },
     {
       id: "plate",
       name: "Weight Plate",
-      subtitle: "Beban Piringan / Plat",
-      desc: "Gerakan fungsional, latihan rotasi core, dan cengkeraman forearms.",
-      icon: "🔘",
+      subtitle: "Beban Plat Bulat",
+      desc: "Rotasi torsi batang tubuh, kekuatan genggaman, dan mobilitas bahu.",
+      IconComponent: PlateIcon,
     },
   ];
 
@@ -126,65 +210,104 @@ export default function HomePage() {
   };
 
   // Filter exercises matching selected equipment and muscles
-  const filteredExercises = EXERCISES_DATABASE.filter((ex) => {
-    const matchesEquipment = selectedEquipments.includes(ex.equipment);
-    const matchesMuscle =
-      selectedMuscles.length === 0 ||
-      selectedMuscles.includes(ex.primaryMuscle) ||
-      ex.secondaryMuscles.some((sm) => selectedMuscles.includes(sm));
-    return matchesEquipment && matchesMuscle;
-  });
-
-  // Keep workout list populated when filtering changes
-  useEffect(() => {
-    if (filteredExercises.length > 0) {
-      setSelectedWorkoutList(filteredExercises.slice(0, 5));
-    }
+  const filteredExercises = useMemo(() => {
+    return EXERCISES_DATABASE.filter((ex) => {
+      const matchesEquipment = selectedEquipments.includes(ex.equipment);
+      const matchesMuscle =
+        selectedMuscles.length === 0 ||
+        selectedMuscles.includes(ex.primaryMuscle) ||
+        ex.secondaryMuscles.some((sm) => selectedMuscles.includes(sm));
+      return matchesEquipment && matchesMuscle;
+    });
   }, [selectedEquipments, selectedMuscles]);
 
-  // Shuffle single exercise
-  const handleShuffle = (index: number) => {
-    const current = selectedWorkoutList[index];
-    const alternates = EXERCISES_DATABASE.filter(
+  // Keep routine list populated whenever filtering changes
+  useEffect(() => {
+    if (filteredExercises.length > 0) {
+      setSelectedWorkoutList(filteredExercises.slice(0, 6));
+    }
+  }, [selectedEquipments, selectedMuscles, filteredExercises]);
+
+  // Swap / Shuffle single exercise for one that targets the SAME primary muscle
+  const handleSwapExercise = (index: number) => {
+    const targetEx = selectedWorkoutList[index];
+    if (!targetEx) return;
+
+    const alternatives = EXERCISES_DATABASE.filter(
       (e) =>
-        e.id !== current.id &&
+        e.id !== targetEx.id &&
+        e.primaryMuscle === targetEx.primaryMuscle &&
         selectedEquipments.includes(e.equipment) &&
         !selectedWorkoutList.some((sw) => sw.id === e.id)
     );
-    if (alternates.length > 0) {
-      const random = alternates[Math.floor(Math.random() * alternates.length)];
-      const nextList = [...selectedWorkoutList];
-      nextList[index] = random;
-      setSelectedWorkoutList(nextList);
+
+    if (alternatives.length > 0) {
+      const chosen = alternatives[Math.floor(Math.random() * alternatives.length)];
+      const updatedList = [...selectedWorkoutList];
+      updatedList[index] = chosen;
+      setSelectedWorkoutList(updatedList);
+
+      // If active in tracker, re-initialize sets for new exercise
+      if (currentStep === 4) {
+        const { weight, reps, isProgressiveIncrease } = getRecommendedWeightAndReps(
+          chosen.id,
+          offlineSessions
+        );
+        setActiveSets((prev) => ({
+          ...prev,
+          [chosen.id]: [
+            { id: 1, setNumber: 1, weight, reps, completed: false, isProgressive: isProgressiveIncrease },
+            { id: 2, setNumber: 2, weight, reps, completed: false, isProgressive: false },
+            { id: 3, setNumber: 3, weight, reps: Math.max(6, reps - 2), completed: false, isProgressive: false },
+          ],
+        }));
+      }
     }
   };
 
-  // Delete exercise from workout list
-  const handleDelete = (id: string) => {
+  const handleDeleteExercise = (id: string) => {
     setSelectedWorkoutList((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Start Gym Tracker
+  // Start Live Gym Tracker Session with Auto Progressive Overload Pre-filling
   const startWorkoutSession = () => {
-    const exercisesToTrack = selectedWorkoutList.length > 0 ? selectedWorkoutList : filteredExercises.slice(0, 3);
+    const exercisesToTrack =
+      selectedWorkoutList.length > 0 ? selectedWorkoutList : filteredExercises.slice(0, 3);
     const initialSets: { [key: string]: any[] } = {};
+
     exercisesToTrack.forEach((ex) => {
+      const { weight, reps, isProgressiveIncrease } = getRecommendedWeightAndReps(
+        ex.id,
+        offlineSessions
+      );
       initialSets[ex.id] = [
-        { id: 1, setNumber: 1, type: "normal", weight: 30, reps: 10, completed: false },
-        { id: 2, setNumber: 2, type: "normal", weight: 35, reps: 10, completed: false },
-        { id: 3, setNumber: 3, type: "normal", weight: 40, reps: 8, completed: false },
+        { id: 1, setNumber: 1, weight, reps, completed: false, isProgressive: isProgressiveIncrease },
+        { id: 2, setNumber: 2, weight, reps, completed: false, isProgressive: false },
+        { id: 3, setNumber: 3, weight, reps: Math.max(6, reps - 2), completed: false, isProgressive: false },
       ];
     });
+
     setActiveSets(initialSets);
+    setWorkoutStartTime(Date.now());
     setCurrentStep(4);
   };
 
+  // Toggle Set Complete -> Automatically Triggers Rest Timer
   const toggleSetComplete = (exerciseId: string, setId: number) => {
     setActiveSets((prev) => {
       const current = prev[exerciseId] || [];
       const updated = current.map((s) => {
         if (s.id === setId) {
-          return { ...s, completed: !s.completed };
+          const nextCompleted = !s.completed;
+          if (nextCompleted) {
+            // Trigger Automated Rest Timer
+            setRestTimer({
+              active: true,
+              seconds: 90,
+              initial: 90,
+            });
+          }
+          return { ...s, completed: nextCompleted };
         }
         return s;
       });
@@ -192,475 +315,702 @@ export default function HomePage() {
     });
   };
 
+  // Adjust Weight / Reps in Set
+  const updateSetMetric = (
+    exerciseId: string,
+    setId: number,
+    field: "weight" | "reps",
+    delta: number
+  ) => {
+    setActiveSets((prev) => {
+      const current = prev[exerciseId] || [];
+      const updated = current.map((s) => {
+        if (s.id === setId) {
+          const nextVal = Math.max(0, Number((s[field] + delta).toFixed(1)));
+          return { ...s, [field]: nextVal };
+        }
+        return s;
+      });
+      return { ...prev, [exerciseId]: updated };
+    });
+  };
+
+  // End Workout Session & Generate Shareable Card (NO BROWSER ALERT)
+  const finishWorkoutSession = async () => {
+    const duration = Math.max(1, Math.floor((Date.now() - workoutStartTime) / 1000));
+    let totalVolume = 0;
+    let totalRepsCount = 0;
+    const sessionExercises: any[] = [];
+
+    selectedWorkoutList.forEach((ex) => {
+      const sets = activeSets[ex.id] || [];
+      const completedSets = sets.filter((s) => s.completed);
+      completedSets.forEach((s) => {
+        totalVolume += Number(s.weight) * Number(s.reps);
+        totalRepsCount += Number(s.reps);
+      });
+      if (completedSets.length > 0) {
+        sessionExercises.push({
+          id: ex.id,
+          name: ex.name,
+          sets: completedSets,
+        });
+      }
+    });
+
+    const payload: WorkoutSessionPayload = {
+      id: "session-" + Date.now(),
+      title: "Sesi Latihan " + new Date().toLocaleDateString("id-ID", { weekday: "long" }),
+      startedAt: workoutStartTime || Date.now() - 3600000,
+      endedAt: Date.now(),
+      durationSeconds: duration,
+      totalVolumeKg: Math.round(totalVolume),
+      totalReps: totalRepsCount,
+      prsBroken: totalVolume > 5000 ? 2 : 1,
+      exercises: sessionExercises,
+      synced: isOnline,
+    };
+
+    // Save offline first
+    await saveWorkoutSessionOffline(payload);
+    const updatedHistory = await getAllSessionsOffline();
+    setOfflineSessions(updatedHistory);
+
+    // Reset scroll to top immediately so page header is fully visible
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+
+    // Open celebratory summary modal
+    setSummarySession(payload);
+    setCurrentStep(1);
+    setRestTimer({ active: false, seconds: 0, initial: 90 });
+  };
+
   return (
-    <div className="flex-1 w-full max-w-4xl mx-auto px-4 py-6 md:py-10 space-y-8">
-      {/* 1. TOP HEADER */}
+    <div className="flex-1 w-full max-w-4xl mx-auto px-3 sm:px-6 py-5 sm:py-8 space-y-6">
+      {/* 1. TOP HEADER & SPORTY BRANDING */}
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-800 pb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-amber-400 flex items-center justify-center text-xl font-black text-black shadow-lg shadow-amber-400/20">
-            🏋️
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-black shadow-lg shadow-orange-500/20">
+            <BrandLogo className="w-6 h-6 stroke-[2.5]" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Ayo-Olahraga
-            </h1>
-            <p className="text-xs text-gray-400">
-              Panduan interaktif gerakan video real-time, anatomi otot, dan gym workout builder.
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                Ayo-Olahraga
+              </h1>
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/30">
+                Pro
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Engine latihan kebugaran offline-first, biomekanika anatomi, dan progressive overload.
             </p>
           </div>
+        </div>
+
+        {/* Global Action Bar: Tools, Leaderboard, Online Status */}
+        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
+          {/* Connectivity Badge */}
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-colors ${
+              isOnline
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+            }`}
+          >
+            {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+            <span className="hidden xs:inline">{isOnline ? "Online" : "Offline PWA"}</span>
+          </div>
+
+          {/* Leaderboard Trigger */}
+          <button
+            onClick={() => setIsLeaderboardOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 text-xs font-bold text-gray-200 transition-colors"
+          >
+            <Trophy className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">Papan Juara</span>
+          </button>
+
+          {/* Nutrition / Tools Switcher */}
+          <button
+            onClick={() => setActiveTab(activeTab === "builder" ? "tools" : "builder")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+              activeTab === "tools"
+                ? "bg-orange-500 text-black border-orange-400 shadow-md shadow-orange-500/20"
+                : "bg-gray-900 hover:bg-gray-800 border-gray-800 text-gray-200"
+            }`}
+          >
+            <Utensils className="w-4 h-4 text-orange-400" />
+            <span>{activeTab === "tools" ? "Kembali Latihan" : "Alat & Nutrisi"}</span>
+          </button>
         </div>
       </header>
 
-      {/* 2. THREE-STEP STEPPER BAR (IDENTICAL TO WORKOUT.COOL FRAME 1) */}
-      <div className="relative flex items-center justify-between max-w-xl mx-auto px-4 py-2">
-        {/* Connecting Lines */}
-        <div className="absolute left-12 right-12 top-6 h-0.5 bg-gray-800 -z-0" />
-        <div
-          className="absolute left-12 top-6 h-0.5 bg-blue-600 transition-all duration-300 -z-0"
-          style={{ width: currentStep === 1 ? "0%" : currentStep === 2 ? "50%" : "100%" }}
-        />
-
-        {/* Step 1: Equipment */}
-        <div
-          onClick={() => setCurrentStep(1)}
-          className="flex flex-col items-center cursor-pointer z-10 group"
-        >
-          <div
-            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
-              currentStep > 1
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                : currentStep === 1
-                ? "bg-blue-600 text-white ring-4 ring-blue-500/20"
-                : "bg-gray-800 text-gray-400"
-            }`}
-          >
-            {currentStep > 1 ? <Check className="w-4 h-4 stroke-[3]" /> : "1"}
-          </div>
-          <span className="text-xs font-bold text-white mt-1.5">Equipment</span>
-          <span className="text-[10px] text-gray-400">Select equipment</span>
-        </div>
-
-        {/* Step 2: Muscles */}
-        <div
-          onClick={() => setCurrentStep(2)}
-          className="flex flex-col items-center cursor-pointer z-10 group"
-        >
-          <div
-            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
-              currentStep > 2
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                : currentStep === 2
-                ? "bg-blue-600 text-white ring-4 ring-blue-500/20"
-                : "bg-gray-800 text-gray-400"
-            }`}
-          >
-            {currentStep > 2 ? <Check className="w-4 h-4 stroke-[3]" /> : "2"}
-          </div>
-          <span className="text-xs font-bold text-white mt-1.5">Muscles</span>
-          <span className="text-[10px] text-gray-400">Choose training</span>
-        </div>
-
-        {/* Step 3: Exercises */}
-        <div
-          onClick={() => setCurrentStep(3)}
-          className="flex flex-col items-center cursor-pointer z-10 group"
-        >
-          <div
-            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
-              currentStep === 3
-                ? "bg-blue-600 text-white ring-4 ring-blue-500/20"
-                : currentStep === 4
-                ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-gray-400"
-            }`}
-          >
-            3
-          </div>
-          <span className="text-xs font-bold text-white mt-1.5">Exercises</span>
-          <span className="text-[10px] text-gray-400">Customize workout</span>
-        </div>
-      </div>
-
-      {/* 3. STEP CONTENT */}
-      {/* ================= STEP 1: PILIH ALAT (BARBELL, DUMBBELL, BODYWEIGHT, KETTLEBELL, PLATE) ================= */}
-      {currentStep === 1 && (
-        <section className="space-y-6 animate-in fade-in duration-200">
-          <div className="text-center max-w-md mx-auto">
-            <h2 className="text-lg sm:text-xl font-bold text-white">Select your equipment</h2>
-            <p className="text-xs text-gray-400 mt-1">
-              Pilih alat yang Anda miliki di rumah atau gym (fokus: Barbell, Dumbbell, Bodyweight, Kettlebell, Plate):
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {availableEquipments.map((eq) => {
-              const active = selectedEquipments.includes(eq.id);
-              return (
-                <div
-                  key={eq.id}
-                  onClick={() => toggleEquipment(eq.id)}
-                  className={`cursor-pointer p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
-                    active
-                      ? "bg-gradient-to-br from-gray-900 to-[#121622] border-blue-500/70 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/30"
-                      : "bg-gray-900/40 border-gray-800 hover:border-gray-700 opacity-60"
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-3xl">{eq.icon}</span>
-                      <div
-                        className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
-                          active
-                            ? "bg-blue-600 border-blue-500 text-white font-bold"
-                            : "border-gray-700 bg-gray-800"
-                        }`}
-                      >
-                        {active && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                      </div>
-                    </div>
-                    <h3 className="text-base font-bold text-white">{eq.name}</h3>
-                    <span className="text-[11px] font-semibold text-blue-400 block mb-1">
-                      {eq.subtitle}
-                    </span>
-                    <p className="text-xs text-gray-400 leading-relaxed">{eq.desc}</p>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between text-[11px] text-gray-400">
-                    <span>{active ? "Dipilih" : "Diabaikan"}</span>
-                    <span className="font-semibold text-blue-400">
-                      {EXERCISES_DATABASE.filter((x) => x.equipment === eq.id).length} Gerakan
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-between items-center pt-4 border-t border-gray-800">
-            <span className="text-xs text-gray-400">
-              {selectedEquipments.length} dari 5 alat aktif
-            </span>
-            <button
-              onClick={() => setCurrentStep(2)}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-full shadow-lg shadow-blue-500/20 transition-all flex items-center gap-1.5"
-            >
-              Continue <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* ================= STEP 2: PILIH TARGET OTOT (EXACT WORKOUT.COOL ANATOMY SVG) ================= */}
-      {currentStep === 2 && (
-        <section className="space-y-6 animate-in fade-in duration-200">
-          <div className="text-center max-w-md mx-auto">
-            <p className="text-xs text-gray-300 italic tracking-wide">
-              Select the muscle(s) you want to train by clicking on them.
-            </p>
-          </div>
-
-          {/* EXACT SVG ANATOMY REPRODUCED FROM WORKOUT-COOL */}
-          <div className="w-full bg-[#111318] border border-gray-800/80 rounded-3xl p-4 sm:p-6 shadow-2xl">
-            <BodyAnatomyMap
-              selectedMuscles={selectedMuscles}
-              onToggleMuscle={toggleMuscle}
-              onClearMuscles={clearMuscles}
-              onSelectAll={selectAllMuscles}
-            />
-          </div>
-
-          {/* EXACT PILL BUTTONS FROM USER'S SCREENSHOT */}
-          <div className="flex items-center justify-between pt-4 max-w-md mx-auto gap-4">
-            <button
-              onClick={() => setCurrentStep(1)}
-              className="flex-1 py-3 rounded-full bg-[#18233c] hover:bg-[#1e2d4d] text-blue-300 font-bold text-sm flex items-center justify-center gap-1.5 transition-colors border border-blue-900/50"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous
-            </button>
-            <button
-              onClick={() => setCurrentStep(3)}
-              className="flex-1 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-1.5"
-            >
-              Continue <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* ================= STEP 3: EXERCISES LIST (MATCHING WORKOUT.COOL EXACTLY) ================= */}
-      {currentStep === 3 && (
-        <section className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold text-white">Customize your workout</h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Klik ikon video untuk memutar tutorial animasi. Acak (shuffle) atau hapus sesuai kebutuhan:
-              </p>
+      {/* AUTOMATED REST TIMER FLOATING BAR (Appears dynamically when active) */}
+      {restTimer.active && (
+        <div className="sticky top-4 z-40 w-full max-w-md mx-auto p-3.5 rounded-2xl bg-gradient-to-r from-orange-950/90 via-gray-900/95 to-black/90 border border-orange-500/40 shadow-2xl backdrop-blur-md flex items-center justify-between animate-in slide-in-from-top-3 duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400 animate-pulse">
+              <Clock className="w-5 h-5 stroke-[2.5]" />
             </div>
-
-            <button
-              onClick={startWorkoutSession}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-full shadow-lg shadow-blue-500/20 flex items-center gap-1.5 shrink-0"
-            >
-              <Play className="w-4 h-4 fill-white" /> Start Workout
-            </button>
-          </div>
-
-          {/* Exercise List - Exactly matching workout.cool row layout */}
-          <div className="space-y-3">
-            {selectedWorkoutList.map((exercise, idx) => {
-              const badgeClass =
-                MUSCLE_BADGE_COLORS[exercise.primaryMuscleCode] || "bg-blue-600 text-white";
-              return (
-                <div
-                  key={exercise.id}
-                  className="flex items-center gap-3 p-3 bg-[#111318] hover:bg-gray-900 border border-gray-800/80 hover:border-gray-700 rounded-2xl shadow-md transition-all group"
-                >
-                  {/* Drag Handle Icon */}
-                  <GripVertical className="w-5 h-5 text-gray-600 group-hover:text-gray-400 shrink-0 cursor-grab" />
-
-                  {/* Thumbnail Image from YouTube Video (Real Movement Demo) */}
-                  <div
-                    onClick={() => setTutorialExercise(exercise)}
-                    className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-gray-800 border border-gray-700 cursor-pointer group/thumb"
-                  >
-                    <img
-                      src={exercise.fullVideoImageUrl}
-                      alt={exercise.name}
-                      className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/10 flex items-center justify-center">
-                      <Play className="w-4 h-4 text-white fill-white/80" />
-                    </div>
-                  </div>
-
-                  {/* Muscle Badge Initial (e.g. C, S, B, Q) */}
-                  <div
-                    className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${badgeClass}`}
-                    title={exercise.primaryMuscleName}
-                  >
-                    {exercise.primaryMuscleCode}
-                  </div>
-
-                  {/* Title & Equipment Tag */}
-                  <div className="flex-1 min-w-0">
-                    <span
-                      onClick={() => setTutorialExercise(exercise)}
-                      className="text-xs sm:text-sm font-bold text-white hover:text-blue-400 cursor-pointer truncate block"
-                    >
-                      {exercise.name}
-                    </span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-blue-400 font-semibold">
-                        {exercise.equipmentLabel}
-                      </span>
-                      <span className="text-gray-600 text-[10px]">•</span>
-                      <span className="text-[10px] text-gray-400">
-                        {exercise.primaryMuscleName}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Row Actions: Video/Tutorial, Shuffle, Delete */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => setTutorialExercise(exercise)}
-                      className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-blue-300 text-xs font-semibold rounded-lg border border-blue-500/20 flex items-center gap-1"
-                      title="Lihat Video & Tutorial"
-                    >
-                      <Video className="w-3.5 h-3.5 text-blue-400" />
-                      <span className="hidden sm:inline">Tutorial</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleShuffle(idx)}
-                      className="p-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
-                      title="Acak Latihan (Shuffle)"
-                    >
-                      <Shuffle className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(exercise.id)}
-                      className="p-1.5 rounded-lg bg-gray-800/80 hover:bg-red-950/40 text-gray-400 hover:text-red-400 transition-colors"
-                      title="Hapus dari daftar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between pt-4 border-t border-gray-800">
-            <button
-              onClick={() => setCurrentStep(2)}
-              className="px-6 py-2.5 rounded-full bg-[#18233c] hover:bg-[#1e2d4d] text-blue-300 text-xs font-semibold flex items-center gap-1.5"
-            >
-              <ChevronLeft className="w-4 h-4" /> Previous
-            </button>
-            <button
-              onClick={startWorkoutSession}
-              className="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-full shadow-lg shadow-blue-500/20 flex items-center gap-2"
-            >
-              <Play className="w-4 h-4 fill-white" /> Start Workout
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* ================= STEP 4: ACTIVE WORKOUT SESSION (MATCHING USER VIDEO FRAME 4) ================= */}
-      {currentStep === 4 && (
-        <section className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between pb-3 border-b border-gray-800">
             <div>
-              <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider block">
-                Session in Progress
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 block leading-tight">
+                Istirahat Otot (Rest Timer)
               </span>
-              <h2 className="text-xl font-black text-white">Live Gym Tracker</h2>
+              <span className="text-xl font-mono font-black text-white tabular-nums">
+                {Math.floor(restTimer.seconds / 60)}:
+                {String(restTimer.seconds % 60).padStart(2, "0")}
+              </span>
             </div>
-            <button
-              onClick={() => setCurrentStep(3)}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded-xl"
-            >
-              Atur Ulang Latihan
-            </button>
           </div>
 
-          <div className="space-y-4">
-            {selectedWorkoutList.map((exercise, exIdx) => {
-              const sets = activeSets[exercise.id] || [];
-              const allDone = sets.length > 0 && sets.every((s) => s.completed);
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setRestTimer((p) => ({ ...p, seconds: p.seconds + 30 }))}
+              className="px-2.5 py-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-200 text-xs font-mono font-bold"
+            >
+              +30s
+            </button>
+            <button
+              onClick={() => setRestTimer({ active: false, seconds: 0, initial: 90 })}
+              className="px-3 py-1.5 rounded-lg bg-orange-500 text-black text-xs font-bold hover:brightness-110"
+            >
+              Lewati
+            </button>
+          </div>
+        </div>
+      )}
 
-              return (
-                <div
-                  key={exercise.id}
-                  className="bg-[#111318] border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-lg space-y-4"
-                >
-                  {/* Top Exercise Row (Like Frame 4 in User Video) */}
-                  <div className="flex items-center gap-3">
-                    {/* Circular Step Badge: Hourglass or Check */}
+      {/* MAIN VIEW: FITNESS TOOLS SECTION */}
+      {activeTab === "tools" && <FitnessTools />}
+
+      {/* MAIN VIEW: WORKOUT BUILDER & TRACKER */}
+      {activeTab === "builder" && (
+        <>
+          {/* 2. FOUR-STEP WORKOUT PROGRESSION STEPPER */}
+          <div className="flex items-start max-w-2xl mx-auto px-2 sm:px-4 py-2">
+            {/* Step 1: Equipment */}
+            <div
+              onClick={() => setCurrentStep(1)}
+              className="flex flex-col items-center cursor-pointer group shrink-0"
+            >
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                  currentStep > 1
+                    ? "bg-orange-500 text-black shadow-lg shadow-orange-500/25"
+                    : currentStep === 1
+                    ? "bg-orange-500 text-black ring-4 ring-orange-500/20"
+                    : "bg-gray-800 text-gray-400"
+                }`}
+              >
+                {currentStep > 1 ? <Check className="w-4 h-4 stroke-[3]" /> : "1"}
+              </div>
+              <span className="text-xs font-bold text-white mt-1.5">Alat</span>
+              <span className="text-[10px] text-gray-400 hidden xs:inline">Pilih Alat</span>
+            </div>
+
+            {/* Connecting Line 1 -> 2 */}
+            <div className="flex-1 flex items-center px-1.5 sm:px-3 pt-[17px]">
+              <div
+                className={`w-full h-0.5 transition-colors duration-300 ${
+                  currentStep > 1 ? "bg-orange-500" : "bg-gray-800"
+                }`}
+              />
+            </div>
+
+            {/* Step 2: Muscles */}
+            <div
+              onClick={() => setCurrentStep(2)}
+              className="flex flex-col items-center cursor-pointer group shrink-0"
+            >
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                  currentStep > 2
+                    ? "bg-orange-500 text-black shadow-lg shadow-orange-500/25"
+                    : currentStep === 2
+                    ? "bg-orange-500 text-black ring-4 ring-orange-500/20"
+                    : "bg-gray-800 text-gray-400"
+                }`}
+              >
+                {currentStep > 2 ? <Check className="w-4 h-4 stroke-[3]" /> : "2"}
+              </div>
+              <span className="text-xs font-bold text-white mt-1.5">Otot</span>
+              <span className="text-[10px] text-gray-400 hidden xs:inline">Anatomi</span>
+            </div>
+
+            {/* Connecting Line 2 -> 3 */}
+            <div className="flex-1 flex items-center px-1.5 sm:px-3 pt-[17px]">
+              <div
+                className={`w-full h-0.5 transition-colors duration-300 ${
+                  currentStep > 2 ? "bg-orange-500" : "bg-gray-800"
+                }`}
+              />
+            </div>
+
+            {/* Step 3: Exercises */}
+            <div
+              onClick={() => setCurrentStep(3)}
+              className="flex flex-col items-center cursor-pointer group shrink-0"
+            >
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                  currentStep > 3
+                    ? "bg-orange-500 text-black shadow-lg shadow-orange-500/25"
+                    : currentStep === 3
+                    ? "bg-orange-500 text-black ring-4 ring-orange-500/20"
+                    : "bg-gray-800 text-gray-400"
+                }`}
+              >
+                {currentStep > 3 ? <Check className="w-4 h-4 stroke-[3]" /> : "3"}
+              </div>
+              <span className="text-xs font-bold text-white mt-1.5">Gerakan</span>
+              <span className="text-[10px] text-gray-400 hidden xs:inline">Rutinitas</span>
+            </div>
+
+            {/* Connecting Line 3 -> 4 */}
+            <div className="flex-1 flex items-center px-1.5 sm:px-3 pt-[17px]">
+              <div
+                className={`w-full h-0.5 transition-colors duration-300 ${
+                  currentStep >= 4 ? "bg-orange-500" : "bg-gray-800"
+                }`}
+              />
+            </div>
+
+            {/* Step 4: Live Gym Tracker */}
+            <div
+              onClick={() => {
+                if (selectedWorkoutList.length > 0) {
+                  setCurrentStep(4);
+                }
+              }}
+              className={`flex flex-col items-center group shrink-0 ${
+                selectedWorkoutList.length > 0 ? "cursor-pointer" : "opacity-60 cursor-not-allowed"
+              }`}
+            >
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                  currentStep === 4
+                    ? "bg-orange-500 text-black ring-4 ring-orange-500/20 shadow-lg shadow-orange-500/30"
+                    : "bg-gray-800 text-gray-400"
+                }`}
+              >
+                <Zap className="w-4 h-4 fill-current" />
+              </div>
+              <span className="text-xs font-bold text-white mt-1.5">Tracker</span>
+              <span className="text-[10px] text-gray-400 hidden xs:inline">Live Sesi</span>
+            </div>
+          </div>
+
+          {/* ================= STEP 1: PILIH ALAT (CUSTOM FLAT SVG ICONS) ================= */}
+          {currentStep === 1 && (
+            <section className="space-y-6 animate-in fade-in duration-200">
+              <div className="text-center max-w-md mx-auto">
+                <h2 className="text-lg sm:text-xl font-black text-white">
+                  Pilih Perlengkapan Latihan
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  Pilih peralatan yang tersedia untuk menyaring katalog 42 gerakan ilmiah:
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {availableEquipments.map((eq) => {
+                  const active = selectedEquipments.includes(eq.id);
+                  const Icon = eq.IconComponent;
+                  return (
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
-                        allDone
-                          ? "bg-blue-500/20 border-blue-500 text-blue-400"
-                          : "bg-gray-800 border-gray-700 text-gray-400"
+                      key={eq.id}
+                      onClick={() => toggleEquipment(eq.id)}
+                      className={`relative cursor-pointer p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
+                        active
+                          ? "bg-[#141721] border-orange-500 shadow-xl shadow-orange-500/10 ring-1 ring-orange-500/40"
+                          : "bg-[#0c0e14] border-gray-800/80 hover:border-gray-700 hover:bg-[#10131c]"
                       }`}
                     >
-                      {allDone ? <Check className="w-4 h-4" /> : <Hourglass className="w-4 h-4" />}
-                    </div>
+                      <div className="flex items-start justify-between">
+                        <div
+                          className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
+                            active
+                              ? "bg-orange-500 text-black"
+                              : "bg-gray-800/70 text-gray-400"
+                          }`}
+                        >
+                          <Icon className="w-7 h-7" />
+                        </div>
+                        <div
+                          className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
+                            active
+                              ? "bg-orange-500 border-orange-400 text-black"
+                              : "border-gray-700 bg-gray-900"
+                          }`}
+                        >
+                          {active && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </div>
+                      </div>
 
-                    {/* Thumbnail Image from Video */}
+                      <div className="mt-4">
+                        <h3 className="text-base font-black text-white">{eq.name}</h3>
+                        <p className="text-[11px] font-semibold text-orange-400/90 mt-0.5">
+                          {eq.subtitle}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{eq.desc}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-center pt-2">
+                <button
+                  onClick={() => setCurrentStep(2)}
+                  className="px-8 py-3 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-black text-xs flex items-center gap-2 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all"
+                >
+                  Lanjut ke Target Otot <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* ================= STEP 2: PILIH TARGET OTOT (INTERACTIVE ANATOMY) ================= */}
+          {currentStep === 2 && (
+            <section className="space-y-6 animate-in fade-in duration-200">
+              <div className="text-center max-w-md mx-auto">
+                <h2 className="text-lg sm:text-xl font-black text-white">
+                  Pilih Kelompok Otot Sasaran
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  Klik bagian tubuh pada ilustrasi anatomi interaktif untuk memfokuskan latihan:
+                </p>
+              </div>
+
+              {/* Interactive 3D Anatomy Map */}
+              <div className="bg-[#0c0e14] border border-gray-800 rounded-3xl p-4 sm:p-6 shadow-xl">
+                <BodyAnatomyMap
+                  selectedMuscles={selectedMuscles}
+                  onToggleMuscle={toggleMuscle}
+                  onSelectAll={selectAllMuscles}
+                  onClearMuscles={clearMuscles}
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => setCurrentStep(1)}
+                  className="px-6 py-2.5 rounded-full bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 text-xs font-bold"
+                >
+                  Kembali
+                </button>
+                <button
+                  onClick={() => setCurrentStep(3)}
+                  className="px-8 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-black text-xs flex items-center gap-2 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all"
+                >
+                  Lihat Gerakan ({filteredExercises.length}) <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* ================= STEP 3: EXERCISES LIST & WORKOUT BUILDER ================= */}
+          {currentStep === 3 && (
+            <section className="space-y-6 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-800">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-black text-white">
+                    Susun Rutinitas Latihan ({filteredExercises.length} Pilihan Tersedia)
+                  </h2>
+                  <p className="text-xs text-gray-400">
+                    Klik thumbnail video untuk melihat form tutorial, atau swap gerakan sejenis.
+                  </p>
+                </div>
+                <button
+                  onClick={startWorkoutSession}
+                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-black text-xs flex items-center gap-2 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all"
+                >
+                  <Zap className="w-4 h-4 fill-current" /> Mulai Tracker Langsung
+                </button>
+              </div>
+
+              {/* Exercise Rows */}
+              <div className="space-y-3">
+                {selectedWorkoutList.map((exercise, idx) => (
+                  <div
+                    key={exercise.id}
+                    className="flex items-center gap-3 p-3.5 bg-[#0e1017] hover:bg-[#131620] border border-gray-800/80 hover:border-orange-500/40 rounded-2xl shadow-md transition-all group"
+                  >
+                    <GripVertical className="w-5 h-5 text-gray-600 group-hover:text-gray-400 shrink-0 cursor-grab" />
+
+                    {/* Thumbnail video demo */}
                     <div
                       onClick={() => setTutorialExercise(exercise)}
-                      className="relative w-16 h-12 rounded-xl overflow-hidden shrink-0 bg-black border border-gray-700 cursor-pointer group"
+                      className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-black border border-gray-800 cursor-pointer group/thumb"
                     >
                       <img
                         src={exercise.fullVideoImageUrl}
                         alt={exercise.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                        className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
                       />
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                        <Play className="w-3.5 h-3.5 text-white fill-white" />
+                      <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/10 flex items-center justify-center">
+                        <Play className="w-4 h-4 text-white fill-white/80" />
                       </div>
                     </div>
 
-                    {/* Title and "See instructions" Link */}
+                    {/* Title & Muscle Badge */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                        {exercise.name}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span
+                          onClick={() => setTutorialExercise(exercise)}
+                          className="text-xs sm:text-sm font-bold text-white hover:text-orange-400 cursor-pointer truncate block"
+                        >
+                          {exercise.name}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/30 shrink-0">
+                          {exercise.primaryMuscleName.split("(")[0].trim()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
+                        <span className="text-orange-400/90 font-semibold">{exercise.equipmentLabel}</span>
+                        <span>•</span>
+                        <span>{exercise.primaryMuscleName}</span>
+                      </div>
+                    </div>
+
+                    {/* Actions: Swap Gerakan Sejenis & Delete */}
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
-                        onClick={() => setTutorialExercise(exercise)}
-                        className="text-xs text-blue-400 hover:underline flex items-center gap-1 mt-0.5"
+                        onClick={() => handleSwapExercise(idx)}
+                        className="p-2 rounded-xl text-gray-400 hover:text-orange-400 hover:bg-orange-500/10 border border-transparent hover:border-orange-500/20 transition-all"
+                        title="Ganti dengan latihan sejenis (Same Muscle Group)"
                       >
-                        <Video className="w-3 h-3" /> See instructions & video
+                        <Shuffle className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteExercise(exercise.id)}
+                        className="p-2 rounded-xl text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        title="Hapus dari jadwal"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  {/* Set Inputs */}
-                  <div className="space-y-2 pt-2 border-t border-gray-800">
-                    <div className="grid grid-cols-12 text-[10px] font-bold uppercase tracking-wider text-gray-400 px-2 pb-1">
-                      <span className="col-span-2">Set</span>
-                      <span className="col-span-4 text-center">Beban (KG)</span>
-                      <span className="col-span-4 text-center">Reps</span>
-                      <span className="col-span-2 text-center">Selesai</span>
-                    </div>
+              <div className="flex items-center justify-between pt-4 border-t border-gray-800">
+                <button
+                  onClick={() => setCurrentStep(2)}
+                  className="px-6 py-2.5 rounded-full bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 text-xs font-bold"
+                >
+                  Kembali
+                </button>
+                <button
+                  onClick={startWorkoutSession}
+                  className="px-8 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-black text-xs flex items-center gap-2 hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all"
+                >
+                  Mulai Latihan Sekarang <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </section>
+          )}
 
-                    {sets.map((s: any) => (
-                      <div
-                        key={s.id}
-                        className={`grid grid-cols-12 items-center p-2 rounded-xl border transition-all ${
-                          s.completed
-                            ? "bg-blue-950/20 border-blue-500/30 text-gray-300"
-                            : "bg-gray-800/60 border-gray-700 text-white"
-                        }`}
-                      >
-                        <span className="col-span-2 text-xs font-mono font-bold text-gray-400 pl-2">
-                          #{s.setNumber}
-                        </span>
+          {/* ================= STEP 4: LIVE GYM TRACKER (COMPACT MOBILE VIEWPORT LAYOUT) ================= */}
+          {currentStep === 4 && (
+            <section className="space-y-5 animate-in fade-in duration-200 max-w-md mx-auto w-full">
+              {/* Tracker Top Bar */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" /> Sesi Gym Aktif
+                  </span>
+                  <h2 className="text-lg font-black text-white">Live Gym Tracker</h2>
+                </div>
+                <button
+                  onClick={() => setCurrentStep(3)}
+                  className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 text-xs font-bold rounded-xl"
+                >
+                  Atur Ulang
+                </button>
+              </div>
 
-                        <div className="col-span-4 text-center">
-                          <span className="text-sm font-mono font-bold">{s.weight}</span>
-                          <span className="text-[10px] text-gray-400 ml-0.5">kg</span>
+              {/* Active Exercise Cards in Centered Mobile Container */}
+              <div className="space-y-4">
+                {selectedWorkoutList.map((exercise, exIdx) => {
+                  const sets = activeSets[exercise.id] || [];
+                  const allDone = sets.length > 0 && sets.every((s) => s.completed);
+
+                  return (
+                    <div
+                      key={exercise.id}
+                      className="bg-[#0c0e14] border border-gray-800/90 rounded-2xl p-4 shadow-xl space-y-3"
+                    >
+                      {/* Exercise Header */}
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border ${
+                            allDone
+                              ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                              : "bg-gray-800 border-gray-700 text-gray-400"
+                          }`}
+                        >
+                          {allDone ? <Check className="w-4 h-4 stroke-[3]" /> : exIdx + 1}
                         </div>
 
-                        <div className="col-span-4 text-center">
-                          <span className="text-sm font-mono font-bold">{s.reps}</span>
-                          <span className="text-[10px] text-gray-400 ml-0.5">reps</span>
+                        <div
+                          onClick={() => setTutorialExercise(exercise)}
+                          className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-black border border-gray-800 cursor-pointer"
+                        >
+                          <img
+                            src={exercise.fullVideoImageUrl}
+                            alt={exercise.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                            <Play className="w-3.5 h-3.5 text-white fill-white" />
+                          </div>
                         </div>
 
-                        <div className="col-span-2 flex justify-center">
-                          <button
-                            onClick={() => toggleSetComplete(exercise.id, s.id)}
-                            className={`p-1 rounded-lg ${
-                              s.completed ? "text-blue-400" : "text-gray-500 hover:text-white"
-                            }`}
-                          >
-                            <CheckCircle2
-                              className={`w-5 h-5 ${s.completed ? "fill-blue-500/20" : ""}`}
-                            />
-                          </button>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xs sm:text-sm font-bold text-white truncate">
+                            {exercise.name}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <button
+                              onClick={() => setTutorialExercise(exercise)}
+                              className="text-[11px] text-orange-400 hover:underline flex items-center gap-1 font-semibold"
+                            >
+                              <Video className="w-3 h-3" /> Form 3D
+                            </button>
+                            <span className="text-gray-600">•</span>
+                            <button
+                              onClick={() => handleSwapExercise(exIdx)}
+                              className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1"
+                              title="Swap gerakan ini"
+                            >
+                              <Shuffle className="w-3 h-3" /> Swap
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-gray-800">
-            <button
-              onClick={() => setCurrentStep(3)}
-              className="px-6 py-2.5 rounded-full bg-gray-800 text-gray-300 text-xs font-semibold"
-            >
-              Kembali
-            </button>
-            <button
-              onClick={() => {
-                alert("Selamat! Sesi workout telah selesai dan tersimpan.");
-                setCurrentStep(1);
-              }}
-              className="px-8 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-blue-500/20"
-            >
-              <Trophy className="w-4 h-4" /> Selesaikan Latihan
-            </button>
-          </div>
-        </section>
+                      {/* Sets - Ultra Compact Side-by-Side Table */}
+                      <div className="space-y-2 pt-2 border-t border-gray-800/70">
+                        {sets.map((s: any) => (
+                          <div
+                            key={s.id}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                              s.completed
+                                ? "bg-orange-500/5 border-orange-500/30 text-gray-300"
+                                : "bg-gray-900/60 border-gray-800 text-white"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-black text-gray-400">
+                                #{s.setNumber}
+                              </span>
+                              {s.isProgressive && (
+                                <span className="text-[9px] font-black uppercase px-1 py-0.2 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                  +2.5kg 🔥
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Beban (kg) Compact Stepper */}
+                            <div className="flex items-center gap-1 bg-black/40 border border-gray-800 rounded-lg p-1">
+                              <button
+                                onClick={() => updateSetMetric(exercise.id, s.id, "weight", -2.5)}
+                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="font-mono font-bold text-xs w-10 text-center">
+                                {s.weight}
+                              </span>
+                              <span className="text-[10px] text-gray-500">kg</span>
+                              <button
+                                onClick={() => updateSetMetric(exercise.id, s.id, "weight", 2.5)}
+                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Reps Compact Stepper */}
+                            <div className="flex items-center gap-1 bg-black/40 border border-gray-800 rounded-lg p-1">
+                              <button
+                                onClick={() => updateSetMetric(exercise.id, s.id, "reps", -1)}
+                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="font-mono font-bold text-xs w-8 text-center">
+                                {s.reps}
+                              </span>
+                              <span className="text-[10px] text-gray-500">reps</span>
+                              <button
+                                onClick={() => updateSetMetric(exercise.id, s.id, "reps", 1)}
+                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-800"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Checkbox Selesai Button */}
+                            <button
+                              onClick={() => toggleSetComplete(exercise.id, s.id)}
+                              className={`p-1.5 rounded-xl border transition-all ${
+                                s.completed
+                                  ? "bg-orange-500 border-orange-400 text-black shadow-md shadow-orange-500/20"
+                                  : "border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600"
+                              }`}
+                              title={s.completed ? "Batal Selesai" : "Tandai Selesai & Mulai Rest Timer"}
+                            >
+                              <Check className="w-4 h-4 stroke-[3]" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Complete Workout Action Button (NO BROWSER ALERT) */}
+              <div className="pt-2">
+                <button
+                  onClick={finishWorkoutSession}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 text-black font-black text-xs flex items-center justify-center gap-2 shadow-xl shadow-orange-500/25 transition-all"
+                >
+                  <Trophy className="w-4 h-4 stroke-[2.5]" /> Selesaikan Sesi & Simpan
+                </button>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
-      {/* 4. MODAL TUTORIAL WITH EMBEDDED REAL 3D ANATOMY VIDEO */}
+      {/* 4. HIGH PERFORMANCE MODALS */}
+      {/* Exercise 3D Form Tutorial Modal */}
       <TutorialModal
         exercise={tutorialExercise}
         onClose={() => setTutorialExercise(null)}
-        isSelected={tutorialExercise ? selectedWorkoutList.some((p) => p.id === tutorialExercise.id) : false}
-        onSelectForWorkout={(ex) => {
-          setSelectedWorkoutList((prev) => (prev.some((p) => p.id === ex.id) ? prev : [...prev, ex]));
-          setCurrentStep(4);
+      />
+
+      {/* End-of-Workout Shareable Summary Card Modal (No Browser Alert) */}
+      <WorkoutSummaryModal
+        session={summarySession}
+        onClose={() => {
+          setSummarySession(null);
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "instant" });
+          }
         }}
+      />
+
+      {/* Champions Leaderboard Modal */}
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
       />
     </div>
   );

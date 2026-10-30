@@ -1164,5 +1164,486 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
       ],
       proTip: "Aktifkan otot trapezius dan dorong plate ke arah langit-langit sepanjang gerakan untuk menjaga stabilitas."
     }
+  },
+
+  {
+    id: "bb-incline-press",
+    name: "Barbell Incline Bench Press",
+    equipment: "barbell",
+    equipmentLabel: "Barbell",
+    primaryMuscle: ExerciseAttributeValueEnum.CHEST,
+    primaryMuscleCode: "C",
+    primaryMuscleName: "Dada Atas (Clavicular Pectoralis)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.SHOULDERS, ExerciseAttributeValueEnum.TRICEPS],
+    secondaryMuscleNames: ["Bahu Depan","Triceps"],
+    difficulty: "Menengah",
+    videoUrl: "https://www.youtube.com/shorts/8iPEnn-ltC8",
+    fullVideoImageUrl: "https://img.youtube.com/vi/8iPEnn-ltC8/hqdefault.jpg",
+    summary: "Bench press pada sudut kemiringan 30 derajat untuk mengisolasi ketebalan serat clavicular dada atas.",
+    researchCitation: {
+      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      study: "Trebs et al. (2010)",
+      findings: "Sudut inklinasi 30-45 derajat meningkatkan aktivasi EMG clavicular head dada atas secara signifikan dibanding flat bench."
+    },
+    tutorial: {
+      setup: [
+        "Atur bangku miring ke sudut 30-45 derajat.",
+        "Rapatkan belikat ke bangku dan letakkan tangan selebar 1.5x lebar bahu di palang barbel."
+],
+      movement: [
+        "Turunkan barbel terkontrol ke bagian atas dada tepat di bawah tulang selangka.",
+        "Dorong barbel kembali ke atas dengan mengontraksikan dada atas secara eksplosif."
+],
+      breathing: "Tarik napas saat menurunkan barbel, hembuskan napas kuat saat mendorong ke atas.",
+      mistakes: [
+        "Sudut bangku terlalu tegak (>45 derajat) yang menggeser beban sepenuhnya ke bahu depan.",
+        "Pantat terangkat dari bangku."
+],
+      proTip: "Fokuskan pada meremas kedua lengan atas ke arah tengah dada saat mendorong ke atas."
+    }
+  },
+  {
+    id: "bb-romanian-deadlift",
+    name: "Barbell Romanian Deadlift (RDL)",
+    equipment: "barbell",
+    equipmentLabel: "Barbell",
+    primaryMuscle: ExerciseAttributeValueEnum.HAMSTRINGS,
+    primaryMuscleCode: "H",
+    primaryMuscleName: "Paha Belakang & Pinggul (Hamstrings & Glutes)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.GLUTES, ExerciseAttributeValueEnum.BACK],
+    secondaryMuscleNames: ["Pantat (Glutes)","Erector Spinae"],
+    difficulty: "Menengah",
+    videoUrl: "https://www.youtube.com/shorts/7bZ0p_i1dCc",
+    fullVideoImageUrl: "https://img.youtube.com/vi/7bZ0p_i1dCc/hqdefault.jpg",
+    summary: "Gerakan hip hinge murni untuk melatih peregangan eksentrik maksimal pada hamstring dan pembentukan otot bokong.",
+    researchCitation: {
+      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      study: "McAllister et al. (2014)",
+      findings: "RDL menghasilkan aktivasi EMG eksentrik tertinggi pada biceps femoris dan semitendinosus dengan beban mekanik konstan."
+    },
+    tutorial: {
+      setup: [
+        "Berdiri tegak memegang barbel di depan paha, kaki dibuka selebar pinggul.",
+        "Tekuk lutut sedikit (15 derajat) dan pertahankan sudut tekukan lutut ini tetap statis."
+],
+      movement: [
+        "Dorong pinggul jauh ke belakang sambil menurunkan barbel rapat menyusuri tulang kering.",
+        "Turun hingga hamstring terasa terenggang maksimal (sekitar tulang kering tengah).",
+        "Dorong pinggul kembali ke depan untuk berdiri tegak sambil meremas glutes."
+],
+      breathing: "Tarik napas saat menurunkan barbel, hembuskan napas saat mendorong pinggul ke depan.",
+      mistakes: [
+        "Menekuk lutut terlalu banyak hingga menjadi gerakan squat.",
+        "Punggung bawah melengkung bundar saat posisi bawah."
+],
+      proTip: "Bayangkan Anda sedang menutup pintu mobil di belakang Anda menggunakan pantat."
+    }
+  },
+  {
+    id: "bb-barbell-curl",
+    name: "Standing Barbell Bicep Curl",
+    equipment: "barbell",
+    equipmentLabel: "Barbell",
+    primaryMuscle: ExerciseAttributeValueEnum.BICEPS,
+    primaryMuscleCode: "Bi",
+    primaryMuscleName: "Lengan Depan (Biceps Brachii)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.FOREARMS],
+    secondaryMuscleNames: ["Lengan Bawah"],
+    difficulty: "Pemula",
+    videoUrl: "https://www.youtube.com/shorts/QZEqB6wUPxQ",
+    fullVideoImageUrl: "https://img.youtube.com/vi/QZEqB6wUPxQ/hqdefault.jpg",
+    summary: "Latihan pembebanan terberat untuk membangun massa dan ketebalan lengan depan secara komprehensif.",
+    researchCitation: {
+      journal: "Journal of Sports Science & Medicine (JSSM)",
+      study: "Marcolin et al. (2018)",
+      findings: "Barbell curl bilateral memungkinkan aktivasi massa motor unit biceps brachii tertinggi berkat pembebanan absolut yang lebih tinggi."
+    },
+    tutorial: {
+      setup: [
+        "Berdiri tegak memegang barbel selebar bahu dengan telapak tangan menghadap ke atas.",
+        "Kunci siku di samping pinggang dan kencangkan perut."
+],
+      movement: [
+        "Tekuk siku dan angkat barbel dalam busur setengah lingkaran ke arah dada atas.",
+        "Tahan kontraksi puncak bicep selama 1 detik.",
+        "Turunkan barbel secara perlahan dan terkontrol kembali ke posisi awal."
+],
+      breathing: "Hembuskan napas saat mengangkat beban, tarik napas saat menurunkan barbel.",
+      mistakes: [
+        "Mengayunkan pinggul atau punggung belakang untuk membantu dorongan (cheating curl).",
+        "Siku bergeser maju ke depan."
+],
+      proTip: "Tempelkan siku Anda seolah terpatri di samping tulang rusuk untuk isolasi serat bicep 100%."
+    }
+  },
+  {
+    id: "bb-skull-crusher",
+    name: "Barbell Lying Triceps Extension (Skull Crusher)",
+    equipment: "barbell",
+    equipmentLabel: "Barbell",
+    primaryMuscle: ExerciseAttributeValueEnum.TRICEPS,
+    primaryMuscleCode: "T",
+    primaryMuscleName: "Lengan Belakang (Triceps Long Head)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.FOREARMS],
+    secondaryMuscleNames: ["Stabilisator Pergelangan"],
+    difficulty: "Menengah",
+    videoUrl: "https://www.youtube.com/shorts/d_KZxkH_toI",
+    fullVideoImageUrl: "https://img.youtube.com/vi/d_KZxkH_toI/hqdefault.jpg",
+    summary: "Latihan isolasi kepala panjang triceps pada posisi peregangan penuh di atas bangku datar.",
+    researchCitation: {
+      journal: "Journal of Applied Biomechanics",
+      study: "Boeckh-Behrens & Buskies (2000)",
+      findings: "Posisi lengan overhead pada lying triceps extension memaksimalkan ketegangan mekanis pada caput longum triceps brachii."
+    },
+    tutorial: {
+      setup: [
+        "Berbaring telentang di bangku datar memegang barbel dengan kedua tangan selebar bahu di atas dada.",
+        "Arahkan siku sedikit ke belakang kepala (sudut 75-80 derajat) untuk menjaga ketegangan konstan."
+],
+      movement: [
+        "Tekuk siku perlahan dan turunkan barbel ke arah dahi atau tepat di belakang puncak kepala.",
+        "Pertahankan posisi lengan atas tetap kokoh tidak bergerak.",
+        "Dorong barbel kembali ke atas dengan meluruskan siku menggunakan kekuatan triceps."
+],
+      breathing: "Tarik napas saat menurunkan barbel, hembuskan napas kuat saat meluruskan siku.",
+      mistakes: [
+        "Siku melebar keluar ke samping (risiko tekanan pada sendi siku).",
+        "Menggerakkan seluruh lengan atas maju-mundur."
+],
+      proTip: "Arahkan barbel sedikit ke belakang kepala (bukan tepat di dahi) untuk mempertahankan ketegangan puncak di posisi atas."
+    }
+  },
+  {
+    id: "db-bulgarian-squat",
+    name: "Dumbbell Bulgarian Split Squat",
+    equipment: "dumbbell",
+    equipmentLabel: "Dumbbell",
+    primaryMuscle: ExerciseAttributeValueEnum.QUADRICEPS,
+    primaryMuscleCode: "Q",
+    primaryMuscleName: "Paha Depan & Glutes (Unilateral Quads)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.GLUTES, ExerciseAttributeValueEnum.HAMSTRINGS],
+    secondaryMuscleNames: ["Pantat (Glutes)","Paha Belakang"],
+    difficulty: "Menengah",
+    videoUrl: "https://www.youtube.com/shorts/2C-uNgKwPLE",
+    fullVideoImageUrl: "https://img.youtube.com/vi/2C-uNgKwPLE/hqdefault.jpg",
+    summary: "Latihan kaki unilateral intensif untuk mengoreksi ketimpangan kekuatan kaki dan membangun hipertrofi glutes dan quads.",
+    researchCitation: {
+      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      study: "DeForest et al. (2014)",
+      findings: "Bulgarian split squat menghasilkan aktivasi gluteus medius dan hamstring lebih tinggi dengan beban lumbar spine yang jauh lebih rendah daripada back squat."
+    },
+    tutorial: {
+      setup: [
+        "Pegang sepasang dumbel di samping tubuh, letakkan punggung satu kaki di atas bangku di belakang Anda.",
+        "Langkahkan kaki depan sekitar 60-90 cm ke depan."
+],
+      movement: [
+        "Turunkan pinggul vertikal ke bawah hingga lutut kaki belakang hampir menyentuh lantai.",
+        "Jaga lutut kaki depan sejajar dengan pergelangan kaki dan dada tetap condong sedikit ke depan.",
+        "Dorong melalui seluruh telapak kaki depan untuk kembali naik."
+],
+      breathing: "Tarik napas saat turun, hembuskan napas kuat saat mendorong tubuh naik.",
+      mistakes: [
+        "Posisi kaki depan terlalu dekat dengan bangku sehingga tumit depan terangkat.",
+        "Lutut depan goyah ke dalam (valgus)."
+],
+      proTip: "Condongkan tubuh sedikit 10 derajat ke depan untuk mengalihkan beban lebih besar ke otot glutes."
+    }
+  },
+  {
+    id: "db-hammer-curl",
+    name: "Dumbbell Hammer Curl",
+    equipment: "dumbbell",
+    equipmentLabel: "Dumbbell",
+    primaryMuscle: ExerciseAttributeValueEnum.BICEPS,
+    primaryMuscleCode: "Bi",
+    primaryMuscleName: "Biceps & Lengan Bawah (Brachioradialis)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.FOREARMS],
+    secondaryMuscleNames: ["Brachialis","Forearms"],
+    difficulty: "Pemula",
+    videoUrl: "https://www.youtube.com/shorts/zC3nLlEvin4",
+    fullVideoImageUrl: "https://img.youtube.com/vi/zC3nLlEvin4/hqdefault.jpg",
+    summary: "Curl pegangan netral untuk menebalkan otot brachialis dan otot lengan bawah (brachioradialis).",
+    researchCitation: {
+      journal: "Journal of Electromyography and Kinesiology",
+      study: "Kleiber et al. (2015)",
+      findings: "Grip netral (telapak tangan saling berhadapan) memaksimalkan rekrutmen otot brachioradialis dan brachialis yang mendorong bicep tampak lebih tinggi."
+    },
+    tutorial: {
+      setup: [
+        "Berdiri tegak memegang dumbel di samping tubuh dengan telapak tangan saling berhadapan (netral).",
+        "Rapatkan siku di samping pinggang."
+],
+      movement: [
+        "Angkat dumbel ke atas dengan mempertahankan telapak tangan tetap saling berhadapan.",
+        "Remas otot di posisi puncak selama 1 detik.",
+        "Turunkan beban dengan tempo 2 detik terkontrol."
+],
+      breathing: "Hembuskan napas saat mengangkat dumbel, tarik napas saat menurunkan.",
+      mistakes: [
+        "Memutar pergelangan tangan ke atas (supinasi).",
+        "Mengayunkan badan ke belakang."
+],
+      proTip: "Kunci pergelangan tangan tetap lurus kokoh seolah sedang memegang palu."
+    }
+  },
+  {
+    id: "db-rear-delt-fly",
+    name: "Dumbbell Bent-Over Rear Delt Fly",
+    equipment: "dumbbell",
+    equipmentLabel: "Dumbbell",
+    primaryMuscle: ExerciseAttributeValueEnum.SHOULDERS,
+    primaryMuscleCode: "S",
+    primaryMuscleName: "Bahu Belakang (Posterior Deltoid)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.TRAPS, ExerciseAttributeValueEnum.BACK],
+    secondaryMuscleNames: ["Rhomboids","Traps Tengah"],
+    difficulty: "Pemula",
+    videoUrl: "https://www.youtube.com/shorts/q_0E7eZ_fU8",
+    fullVideoImageUrl: "https://img.youtube.com/vi/q_0E7eZ_fU8/hqdefault.jpg",
+    summary: "Latihan isolasi bahu belakang penting untuk keseimbangan sendi bahu dan postur tubuh tegap.",
+    researchCitation: {
+      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      study: "Campos et al. (2020)",
+      findings: "Bent-over rear delt fly dengan lengan sedikit fleksi menghasilkan aktivasi puncak posterior deltoid tertinggi dibanding variasi berdiri."
+    },
+    tutorial: {
+      setup: [
+        "Bungkukkan badan ke depan sekitar 45-60 derajat dengan punggung lurus dan lutut sedikit ditekuk.",
+        "Pegang sepasang dumbel ringan tepat menggantung di bawah dada."
+],
+      movement: [
+        "Angkat kedua dumbel melebar ke samping dengan siku sedikit ditekuk (bentuk setengah lingkaran).",
+        "Fokuskan pada menarik siku ke atas dan meremas otot bahu belakang.",
+        "Turunkan dumbel secara perlahan dan terkontrol."
+],
+      breathing: "Hembuskan napas saat mengangkat beban ke samping, tarik napas saat menurunkan.",
+      mistakes: [
+        "Menggunakan beban terlalu berat sehingga mengayunkan punggung.",
+        "Meremas belikat terlalu awal (mengalihkan beban ke rhomboids daripada bahu belakang)."
+],
+      proTip: "Bayangkan Anda sedang merentangkan sayap dan mengarahkan siku ke langit-langit."
+    }
+  },
+  {
+    id: "bw-dips",
+    name: "Parallel Bar Dips",
+    equipment: "bodyweight",
+    equipmentLabel: "Bodyweight",
+    primaryMuscle: ExerciseAttributeValueEnum.TRICEPS,
+    primaryMuscleCode: "T",
+    primaryMuscleName: "Lengan Belakang & Dada Bawah (Triceps & Lower Chest)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.CHEST, ExerciseAttributeValueEnum.SHOULDERS],
+    secondaryMuscleNames: ["Dada Bawah","Bahu Depan"],
+    difficulty: "Menengah",
+    videoUrl: "https://www.youtube.com/shorts/2z8JmcrW-As",
+    fullVideoImageUrl: "https://img.youtube.com/vi/2z8JmcrW-As/hqdefault.jpg",
+    summary: "Latihan dorong calisthenics berat terbaik untuk membangun kekuatan dorong triceps dan serat bawah dada.",
+    researchCitation: {
+      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      study: "Calatayud et al. (2017)",
+      findings: "Dips menghasilkan aktivasi EMG triceps brachii dan pectoralis major bawah yang sangat tinggi setara dengan decline barbell bench press."
+    },
+    tutorial: {
+      setup: [
+        "Pegang kedua palang sejajar (parallel bars) dan dorong tubuh ke atas hingga lengan lurus.",
+        "Silangkan kedua kaki dan kunci otot perut."
+],
+      movement: [
+        "Turunkan tubuh perlahan dengan menekuk siku hingga lengan membentuk sudut 90 derajat.",
+        "Jaga tubuh tetap condong sedikit ke depan untuk dada, atau tegak lurus untuk triceps.",
+        "Dorong palang ke bawah untuk mengangkat kembali tubuh ke posisi atas."
+],
+      breathing: "Tarik napas saat menurunkan tubuh, hembuskan napas kuat saat mendorong naik.",
+      mistakes: [
+        "Turun terlalu dalam melebihi 90 derajat (berisiko cedera ligamen anterior bahu).",
+        "Mengangkat bahu ke arah telinga (shrugging)."
+],
+      proTip: "Pertahankan bahu ditarik ke bawah dan ke belakang (depressed) sepanjang repetisi."
+    }
+  },
+  {
+    id: "bw-glute-bridge",
+    name: "Bodyweight Glute Bridge",
+    equipment: "bodyweight",
+    equipmentLabel: "Bodyweight",
+    primaryMuscle: ExerciseAttributeValueEnum.GLUTES,
+    primaryMuscleCode: "G",
+    primaryMuscleName: "Pantat / Pinggul (Gluteus Maximus)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.HAMSTRINGS, ExerciseAttributeValueEnum.ABDOMINALS],
+    secondaryMuscleNames: ["Paha Belakang","Core"],
+    difficulty: "Pemula",
+    videoUrl: "https://www.youtube.com/shorts/fkywZ6O6p6k",
+    fullVideoImageUrl: "https://img.youtube.com/vi/fkywZ6O6p6k/hqdefault.jpg",
+    summary: "Aktivasi otot bokong murni di lantai untuk memperbaiki postur panggul dan kesehatan pinggang bawah.",
+    researchCitation: {
+      journal: "Journal of Orthopaedic & Sports Physical Therapy (JOSPT)",
+      study: "Contreras et al. (2015)",
+      findings: "Glute bridge memicu kontraksi puncak gluteus maximus tertinggi pada ekstensi panggul terminal tanpa beban aksial tulang belakang."
+    },
+    tutorial: {
+      setup: [
+        "Berbaring telentang di lantai dengan lutut ditekuk dan telapak kaki menapak kokoh selebar pinggul.",
+        "Letakkan kedua tangan santai di samping tubuh."
+],
+      movement: [
+        "Tekan kedua tumit ke lantai dan dorong pinggul ke atas hingga tubuh membentuk garis lurus dari bahu ke lutut.",
+        "Remas otot glutes sekuat mungkin di posisi atas selama 2 detik.",
+        "Turunkan pinggul perlahan kembali ke lantai."
+],
+      breathing: "Hembuskan napas saat mendorong pinggul ke atas, tarik napas saat menurunkan.",
+      mistakes: [
+        "Mendorong pinggul terlalu tinggi dengan melengkungkan pinggang bawah (hyperextension).",
+        "Menumpu pada ujung jari kaki alih-alih tumit."
+],
+      proTip: "Kencangkan perut terlebih dahulu agar dorongan murni berasal dari otot pantat bukan otot pinggang."
+    }
+  },
+  {
+    id: "bw-calf-raise",
+    name: "Standing Single-Leg Calf Raise",
+    equipment: "bodyweight",
+    equipmentLabel: "Bodyweight",
+    primaryMuscle: ExerciseAttributeValueEnum.CALVES,
+    primaryMuscleCode: "Ca",
+    primaryMuscleName: "Betis (Gastrocnemius & Soleus)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.FOREARMS],
+    secondaryMuscleNames: ["Keseimbangan Kaki"],
+    difficulty: "Pemula",
+    videoUrl: "https://www.youtube.com/shorts/M_SgA2C_dTU",
+    fullVideoImageUrl: "https://img.youtube.com/vi/M_SgA2C_dTU/hqdefault.jpg",
+    summary: "Latihan betis calisthenics unilateral untuk melatih daya lenting tendon achilles dan kekuatan betis.",
+    researchCitation: {
+      journal: "Journal of Applied Biomechanics",
+      study: "Riemann et al. (2011)",
+      findings: "Standing calf raise dengan lutut lurus memaksimalkan rekrutmen caput mediale & laterale otot gastrocnemius."
+    },
+    tutorial: {
+      setup: [
+        "Berdiri dengan ujung telapak satu kaki di tepi undakan atau lantai datar, pegang dinding untuk keseimbangan.",
+        "Tekuk kaki yang satu lagi di udara."
+],
+      movement: [
+        "Dorong ujung telapak kaki ke bawah dan angkat tumit setinggi mungkin (plantarflexion penuh).",
+        "Tahan kontraksi puncak betis selama 1 detik.",
+        "Turunkan tumit ke bawah perlahan hingga merasakan regangan penuh pada betis."
+],
+      breathing: "Hembuskan napas saat berjinjit naik, tarik napas saat menurunkan tumit.",
+      mistakes: [
+        "Memantul-mantulkan gerakan tanpa jeda kontraksi di atas.",
+        "Menekuk lutut saat mengangkat tumit."
+],
+      proTip: "Tahan 1 detik di posisi jinjit paling atas untuk memaksimalkan hipertrofi otot betis yang lambat lelah."
+    }
+  },
+  {
+    id: "kb-snatch",
+    name: "Single-Arm Kettlebell Snatch",
+    equipment: "kettlebell",
+    equipmentLabel: "Kettlebell",
+    primaryMuscle: ExerciseAttributeValueEnum.SHOULDERS,
+    primaryMuscleCode: "S",
+    primaryMuscleName: "Bahu & Daya Ledak Seluruh Tubuh",
+    secondaryMuscles: [ExerciseAttributeValueEnum.HAMSTRINGS, ExerciseAttributeValueEnum.GLUTES, ExerciseAttributeValueEnum.BACK],
+    secondaryMuscleNames: ["Hamstrings","Glutes","Lats"],
+    difficulty: "Lanjutan",
+    videoUrl: "https://www.youtube.com/shorts/q77zYvK6iZg",
+    fullVideoImageUrl: "https://img.youtube.com/vi/q77zYvK6iZg/hqdefault.jpg",
+    summary: "Latihan balistik tingkat lanjut untuk melatih kecepatan, daya ledak hip hinge, dan stabilitas bahu overhead.",
+    researchCitation: {
+      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      study: "Lake & Lauder (2012)",
+      findings: "Kettlebell snatch menghasilkan mechanical power output dan rate of force development (RFD) yang sangat tinggi di seluruh rantai kinetik tubuh."
+    },
+    tutorial: {
+      setup: [
+        "Letakkan kettlebell di lantai di depan kaki, ambil posisi hip hinge.",
+        "Pegang handle kettlebell dengan satu tangan."
+],
+      movement: [
+        "Ayunkan kettlebell ke belakang di antara kedua kaki, lalu ledakkan pinggul ke depan.",
+        "Tarik kettlebell ke atas dalam garis vertikal dekat dengan tubuh.",
+        "Dorong tangan menembus handle di atas kepala sehingga kettlebell mendarat lembut di punggung tangan."
+],
+      breathing: "Tarik napas saat mengayun ke bawah, hembuskan napas kuat saat mengunci kettlebell di atas kepala.",
+      mistakes: [
+        "Membiarkan kettlebell menghantam pergelangan tangan dengan keras.",
+        "Mengayunkan kettlebell terlalu jauh ke depan seperti swing."
+],
+      proTip: "Jaga kettlebell sedekat mungkin dengan tubuh seperti sedang menutup ritsleting jaket."
+    }
+  },
+  {
+    id: "kb-halo",
+    name: "Kettlebell Overhead Halo",
+    equipment: "kettlebell",
+    equipmentLabel: "Kettlebell",
+    primaryMuscle: ExerciseAttributeValueEnum.SHOULDERS,
+    primaryMuscleCode: "S",
+    primaryMuscleName: "Mobilitas Bahu & Rotator Cuff",
+    secondaryMuscles: [ExerciseAttributeValueEnum.ABDOMINALS, ExerciseAttributeValueEnum.TRAPS],
+    secondaryMuscleNames: ["Core","Upper Trapezius"],
+    difficulty: "Pemula",
+    videoUrl: "https://www.youtube.com/shorts/sF7Hk_G6r10",
+    fullVideoImageUrl: "https://img.youtube.com/vi/sF7Hk_G6r10/hqdefault.jpg",
+    summary: "Gerakan melingkar mengitari kepala untuk meningkatkan kesehatan kapsul bahu, mobilitas toraks, dan stabilitas inti.",
+    researchCitation: {
+      journal: "International Journal of Sports Physical Therapy",
+      study: "Brumitt et al. (2010)",
+      findings: "Kettlebell halo mengaktifkan otot rotator cuff (supraspinatus, infraspinatus) dan stabilisator skapula dalam berbagai bidang gerak rotasional."
+    },
+    tutorial: {
+      setup: [
+        "Pegang kettlebell terbalik di depan dada dengan kedua tangan memegang tanduk handle.",
+        "Berdiri tegak dengan kaki dibuka selebar bahu dan kunci otot perut."
+],
+      movement: [
+        "Putar kettlebell mengitari kepala sedekat mungkin tanpa menyentuh leher.",
+        "Bawa kembali kettlebell ke depan dada.",
+        "Ulangi gerakan dengan arah putaran sebaliknya."
+],
+      breathing: "Bernapaslah dengan tenang dan berirama sepanjang rotasi gerakan.",
+      mistakes: [
+        "Menggoyangkan pinggul atau memutar leher (kepala harus tetap diam menghadap depan).",
+        "Menggunakan kettlebell yang terlalu berat."
+],
+      proTip: "Hanya lengan Anda yang berputar mengitari kepala; kepala dan tubuh Anda harus tetap kokoh tegak seperti batu karang."
+    }
+  },
+  {
+    id: "plate-pinch-carry",
+    name: "Plate Pinch Grip Farmer Walk",
+    equipment: "plate",
+    equipmentLabel: "Plate",
+    primaryMuscle: ExerciseAttributeValueEnum.FOREARMS,
+    primaryMuscleCode: "F",
+    primaryMuscleName: "Lengan Bawah & Cengkeraman (Grip Strength)",
+    secondaryMuscles: [ExerciseAttributeValueEnum.TRAPS, ExerciseAttributeValueEnum.ABDOMINALS],
+    secondaryMuscleNames: ["Trapezius","Core Stabilizer"],
+    difficulty: "Menengah",
+    videoUrl: "https://www.youtube.com/shorts/Y1m2F_dO3m4",
+    fullVideoImageUrl: "https://img.youtube.com/vi/Y1m2F_dO3m4/hqdefault.jpg",
+    summary: "Latihan cengkeraman jari statis ekstrem untuk membangun kekuatan pergelangan tangan dan otot lengan bawah.",
+    researchCitation: {
+      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      study: "Winwood et al. (2014)",
+      findings: "Loaded carries dengan pinch grip memaksimalkan aktivasi flexor digitorum dan otot penstabil lumbal secara simultan."
+    },
+    tutorial: {
+      setup: [
+        "Jepit satu atau dua plat beban halus menggunakan ujung jari-jari tangan (tanpa menyentuh bibir lubang plat).",
+        "Berdiri tegak dengan postur dada tegap dan bahu ditarik ke belakang."
+],
+      movement: [
+        "Berjalanlah perlahan ke depan dengan langkah kecil dan terkontrol sepanjang 15-20 meter.",
+        "Pertahankan cengkeraman jari tangan tetap mengunci rapat.",
+        "Turunkan plat dengan menekuk lutut (squat) saat repetisi selesai."
+],
+      breathing: "Pertahankan pernapasan diafragma yang stabil selama melangkah.",
+      mistakes: [
+        "Bahu merosot jatuh ke depan.",
+        "Menjatuhkan plat secara tiba-tiba ke jari kaki."
+],
+      proTip: "Keringkan telapak tangan atau gunakan kapur gym (chalk) untuk mencegah selip."
+    }
   }
 ];

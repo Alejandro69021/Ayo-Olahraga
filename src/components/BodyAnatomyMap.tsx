@@ -63,7 +63,7 @@ const MuscleIllustration = ({
     const isSelected = selectedMuscles.includes(muscle);
     return cn(
       "cursor-pointer transition-all duration-100 ease-out",
-      isSelected ? "fill-blue-500" : "fill-slate-400 hover:fill-blue-400 group-hover:fill-blue-400",
+      isSelected ? "fill-orange-500 filter drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]" : "fill-slate-600/90 hover:fill-orange-400 group-hover:fill-orange-400 hover:filter hover:drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]",
     );
   };
 
@@ -1284,11 +1284,11 @@ export function BodyAnatomyMap({
                 type="button"
                 onClick={() => onToggleMuscle(m.enumVal)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all flex items-center gap-1 ${active
-                    ? "bg-blue-600/20 border-blue-500 text-blue-300 font-bold shadow-sm"
-                    : "bg-gray-900/60 border-gray-800 text-gray-400 hover:border-gray-700 hover:text-white"
+                  ? "bg-orange-500/20 border-orange-500 text-orange-300 font-bold shadow-sm shadow-orange-500/10"
+                  : "bg-gray-900/60 border-gray-800 text-gray-400 hover:border-gray-700 hover:text-white"
                   }`}
               >
-                {active && <Check className="w-3 h-3 text-blue-400" />}
+                {active && <Check className="w-3 h-3 text-orange-400 stroke-[3]" />}
                 {m.name}
               </button>
             );
