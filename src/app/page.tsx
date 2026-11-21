@@ -26,10 +26,12 @@ import {
   ChevronRight,
   Wifi,
   WifiOff,
-  Dumbbell
+  Dumbbell,
+  Camera
 } from "lucide-react";
 import { BodyAnatomyMap, ExerciseAttributeValueEnum, MUSCLE_GROUPS } from "@/components/BodyAnatomyMap";
 import { TutorialModal } from "@/components/TutorialModal";
+import { FormCoachModal } from "@/components/form-coach/FormCoachModal";
 import { WorkoutSummaryModal } from "@/components/WorkoutSummaryModal";
 import { FitnessTools } from "@/components/FitnessTools";
 import { LeaderboardModal } from "@/components/LeaderboardModal";
@@ -64,6 +66,7 @@ export default function HomePage() {
 
   // Modals
   const [tutorialExercise, setTutorialExercise] = useState<ExerciseDetail | null>(null);
+  const [coachExercise, setCoachExercise] = useState<ExerciseDetail | null>(null);
   const [summarySession, setSummarySession] = useState<WorkoutSessionPayload | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
   const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
@@ -388,6 +391,24 @@ export default function HomePage() {
       });
       return { ...prev, [exerciseId]: updated };
     });
+  };
+
+  const handleCoachComplete = (summary: { repsAnalyzed: number; avgScore: number; topIssues: { checkId: string; count: number }[] }) => {
+    if (!coachExercise) return;
+    const exId = coachExercise.id;
+    const sets = activeSets[exId] || [];
+    const firstUnfinished = sets.find((s) => !s.completed);
+    if (firstUnfinished && summary.repsAnalyzed > 0) {
+      setSetMetricDirect(exId, firstUnfinished.id, "reps", summary.repsAnalyzed);
+      setActiveSets((prev) => {
+        const cur = prev[exId] || [];
+        return {
+          ...prev,
+          [exId]: cur.map((s) => (s.id === firstUnfinished.id ? { ...s, formSummary: summary } : s)),
+        };
+      });
+    }
+    setCoachExercise(null);
   };
 
   // End Workout Session & Generate Shareable Card (NO BROWSER ALERT)
@@ -1014,6 +1035,23 @@ export default function HomePage() {
                                 >
                                   <Video className="w-3 h-3" /> FORM 3D
                                 </button>
+                                {exercise.formCoach && (
+                                  <>
+                                    <span className="text-zinc-600">•</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        if (isActive) {
+                                          e.stopPropagation();
+                                          setCoachExercise(exercise);
+                                        }
+                                      }}
+                                      className="text-[11px] text-lime-400 hover:underline flex items-center gap-1 font-bold font-metric tracking-wide"
+                                    >
+                                      <Camera className="w-3 h-3" /> CEK FORM
+                                    </button>
+                                  </>
+                                )}
                                 <span className="text-zinc-600">•</span>
                                 <button
                                   type="button"
@@ -1185,6 +1223,14 @@ export default function HomePage() {
       <TutorialModal
         exercise={tutorialExercise}
         onClose={() => setTutorialExercise(null)}
+        onStartFormCoach={(ex) => setCoachExercise(ex)}
+      />
+
+      {/* Form Coach Modal */}
+      <FormCoachModal
+        exercise={coachExercise}
+        onClose={() => setCoachExercise(null)}
+        onComplete={handleCoachComplete}
       />
 
       {/* End-of-Workout Shareable Summary Card Modal (No Browser Alert) */}

@@ -56,6 +56,18 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
     0
   );
 
+  // Calculate average form score if any formSummary exists
+  const setsWithForm = session.exercises.flatMap((ex) =>
+    ex.sets.filter((s) => s.formSummary && typeof s.formSummary.avgScore === "number")
+  );
+  const avgFormScore =
+    setsWithForm.length > 0
+      ? Math.round(
+          setsWithForm.reduce((sum, s) => sum + (s.formSummary?.avgScore || 0), 0) /
+            setsWithForm.length
+        )
+      : null;
+
   const handleShareStory = async () => {
     const shareText = `⚡ SESI LATIHAN SELESAI — AYO-OLAHRAGA\n\n🔥 Total Beban: ${session.totalVolumeKg.toLocaleString()} KG\n⏱️ Durasi: ${minutes}m ${seconds}s\n🧱 Set Selesai: ${totalCompletedSets} Sets\n🎯 Gerakan: ${session.exercises.length} Latihan\n\nSiap progressive overload di Ayo-Olahraga!`;
 
@@ -158,6 +170,14 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Skor Form Rata-Rata bila ada Form Coach data */}
+            {avgFormScore !== null && (
+              <div className="p-3 rounded-2xl bg-[#121212] border border-[#222222] text-left text-xs font-bold text-gray-200 flex items-center justify-between">
+                <span>Skor form rata-rata: {avgFormScore}</span>
+                <span className="font-metric text-sm font-black text-lime-400">AI FORM COACH</span>
+              </div>
+            )}
           </div>
 
           {/* Exercise Log Checklist */}

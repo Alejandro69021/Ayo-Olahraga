@@ -13,6 +13,11 @@ export interface LoggedSet {
   reps: number;
   completed: boolean;
   timestamp: number;
+  formSummary?: {
+    repsAnalyzed: number;
+    avgScore: number;
+    topIssues: { checkId: string; count: number }[];
+  };
 }
 
 export interface WorkoutSessionPayload {

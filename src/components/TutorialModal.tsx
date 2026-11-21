@@ -13,7 +13,8 @@ import {
   BookOpen,
   ChevronDown,
   Layers,
-  Activity
+  Activity,
+  Camera
 } from "lucide-react";
 import { ExerciseDetail } from "@/data/exercises";
 import { getYouTubeEmbedUrl } from "@/lib/youtube";
@@ -22,6 +23,7 @@ interface TutorialModalProps {
   exercise: ExerciseDetail | null;
   onClose: () => void;
   onSelectForWorkout?: (exercise: ExerciseDetail) => void;
+  onStartFormCoach?: (exercise: ExerciseDetail) => void;
   isSelected?: boolean;
 }
 
@@ -29,6 +31,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
   exercise,
   onClose,
   onSelectForWorkout,
+  onStartFormCoach,
   isSelected = false,
 }) => {
   // Accordion state: default open steps
@@ -260,6 +263,19 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {onStartFormCoach && exercise.formCoach && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onStartFormCoach(exercise);
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-lime-400 hover:bg-lime-300 text-black font-metric uppercase tracking-wider transition-colors shadow-lg shadow-lime-400/20"
+              >
+                <Camera className="w-4 h-4 stroke-[2.5]" />
+                <span>Cek Form dengan Kamera</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="px-3.5 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-gray-800/80 hover:bg-gray-700 transition-colors"

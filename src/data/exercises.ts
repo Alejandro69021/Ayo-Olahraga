@@ -14,6 +14,26 @@ export interface ExerciseDetail {
   videoUrl: string;
   fullVideoImageUrl: string;
   summary: string;
+  formCoach?: {
+    ruleSetId:
+      | "squat"
+      | "pushup"
+      | "plank"
+      | "split"
+      | "hinge"
+      | "hinge-ballistic"
+      | "calf"
+      | "bridge"
+      | "hanging-core"
+      | "press-vertical"
+      | "row"
+      | "pull-vertical"
+      | "pushup-variant"
+      | "dip"
+      | "press-horizontal";
+    view: "side" | "front";
+    cameraTip: string;
+  };
   researchCitation?: {
     journal: string;
     study: string;
@@ -46,6 +66,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/embed/OZYybDMR2i4",
     fullVideoImageUrl: "https://img.youtube.com/vi/OZYybDMR2i4/hqdefault.jpg",
     summary: "Latihan kompaun utama untuk membangun ketebalan serat dada, triceps, dan deltoid anterior dengan stabilisasi barbel bilateral.",
+    formCoach: {
+      ruleSetId: "press-horizontal",
+      view: "side",
+      cameraTip: "Akurasi terbatas. Letakkan HP 2–3 meter di samping bangku latihan, seluruh rentang gerak terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Schick et al. (2010) & Trebs et al. (2010)",
@@ -86,6 +111,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/dW3zj79xfrc",
     fullVideoImageUrl: "https://img.youtube.com/vi/dW3zj79xfrc/hqdefault.jpg",
     summary: "Raja latihan kaki untuk melatih paha depan (quadriceps), pinggul (glutes), dan rantai kinetik seluruh tubuh.",
+    formCoach: {
+      ruleSetId: "squat",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, seluruh tubuh terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Schoenfeld, B.J. (2010) - Squatting Kinematics & Kinetics",
@@ -125,6 +155,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/phVtqawIgbk",
     fullVideoImageUrl: "https://img.youtube.com/vi/phVtqawIgbk/hqdefault.jpg",
     summary: "Latihan penebal otot punggung bebas untuk merangsang latissimus dorsi, rhomboids, dan fleksor siku tanpa bantuan rel mesin.",
+    formCoach: {
+      ruleSetId: "row",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, postur punggung terlihat jelas.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Fenwick, Brown, & McGill (2009)",
@@ -164,6 +199,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/embed/NmfQzqGktgs",
     fullVideoImageUrl: "https://img.youtube.com/vi/NmfQzqGktgs/hqdefault.jpg",
     summary: "Latihan unilateral efektif menggunakan barbel untuk melatih keseimbangan, kekuatan otot paha, dan stabilitas panggul.",
+    formCoach: {
+      ruleSetId: "split",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, seluruh tubuh terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Ebben et al. (2009) - Unilateral Lower Body EMG",
@@ -202,6 +242,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/uPWycTcl05U",
     fullVideoImageUrl: "https://img.youtube.com/vi/uPWycTcl05U/hqdefault.jpg",
     summary: "Latihan kekuatan total tubuh terhebat yang melatih seluruh rantai posterior tubuh dari tumit hingga leher.",
+    formCoach: {
+      ruleSetId: "hinge",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi lutut atau pinggul, 2–3 meter di samping Anda, lintasan beban terlihat.",
+    },
     researchCitation: {
       journal: "Medicine & Science in Sports & Exercise (MSSE)",
       study: "Escamilla et al. (2002) & Cholewa et al. (2019)",
@@ -241,6 +286,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/afR3tPH6y_g",
     fullVideoImageUrl: "https://img.youtube.com/vi/afR3tPH6y_g/hqdefault.jpg",
     summary: "Latihan berdiri klasik untuk membangun tenaga dorong vertikal, bahu tegap, dan kekuatan stabilitas inti tubuh.",
+    formCoach: {
+      ruleSetId: "press-vertical",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi dada, 2–3 meter di samping Anda, lintasan dorongan vertikal terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Saeterbakken & Fimland (2013)",
@@ -284,6 +334,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/embed/c5MKgisg9Us",
     fullVideoImageUrl: "https://img.youtube.com/vi/c5MKgisg9Us/hqdefault.jpg",
     summary: "Memberikan rentang gerak (range of motion) lebih luas dibanding barbel dan memperbaiki ketidakseimbangan kekuatan antara dada kiri dan kanan.",
+    formCoach: {
+      ruleSetId: "press-horizontal",
+      view: "side",
+      cameraTip: "Akurasi terbatas. Letakkan HP 2–3 meter di samping atau depan bangku latihan.",
+    },
     researchCitation: {
       journal: "Journal of Sports Sciences",
       study: "Farias et al. (2017)",
@@ -323,6 +378,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/embed/J98frFHqcI0",
     fullVideoImageUrl: "https://img.youtube.com/vi/J98frFHqcI0/hqdefault.jpg",
     summary: "Latihan isolasi terfokus pada serat klavikular dada atas dan deltoid anterior dengan sudut bench 30-45 derajat.",
+    formCoach: {
+      ruleSetId: "press-horizontal",
+      view: "side",
+      cameraTip: "Akurasi terbatas. Letakkan HP 2–3 meter di samping bangku incline.",
+    },
     researchCitation: {
       journal: "Int. J. Environ. Res. Public Health",
       study: "Rodríguez-Ridao et al. (2020)",
@@ -362,6 +422,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/embed/uF42bGLRFZA",
     fullVideoImageUrl: "https://img.youtube.com/vi/uF42bGLRFZA/hqdefault.jpg",
     summary: "Latihan ramah sendi bahu yang melatih stabilitas dada, triceps, serta otot rotasi core (anti-rotation) di lantai.",
+    formCoach: {
+      ruleSetId: "press-horizontal",
+      view: "side",
+      cameraTip: "Akurasi terbatas. Letakkan HP di dekat lantai, 2 meter di samping Anda.",
+    },
     researchCitation: {
       journal: "Strength & Conditioning Journal",
       study: "Schoenfeld, B.J. (2016)",
@@ -400,6 +465,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/k-Va22pXflE",
     fullVideoImageUrl: "https://img.youtube.com/vi/k-Va22pXflE/hqdefault.jpg",
     summary: "Latihan punggung unilateral dengan dumbel bebas untuk membangun ketebalan lats dan mengoreksi asimetri kekuatan.",
+    formCoach: {
+      ruleSetId: "row",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, sudut punggung terlihat jelas.",
+    },
     researchCitation: {
       journal: "Sports Medicine",
       study: "Saeterbakken et al. (2015)",
@@ -515,6 +585,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/8VrXHfHH5PM",
     fullVideoImageUrl: "https://img.youtube.com/vi/8VrXHfHH5PM/hqdefault.jpg",
     summary: "Variasi squat dengan dumbel vertikal di dada yang melatih kedalaman squat dengan postur dada yang tegak sempurna.",
+    formCoach: {
+      ruleSetId: "squat",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, seluruh tubuh terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Collins et al. (2021)",
@@ -557,6 +632,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/ba8tr1NzwXU",
     fullVideoImageUrl: "https://img.youtube.com/vi/ba8tr1NzwXU/hqdefault.jpg",
     summary: "Fondasi calisthenics terbaik untuk membangun kekuatan dorong dada, lengan, dan stabilitas inti tubuh murni dengan berat badan.",
+    formCoach: {
+      ruleSetId: "pushup",
+      view: "side",
+      cameraTip: "Letakkan HP di dekat lantai, 2–3 meter di samping Anda, tubuh dari kepala hingga kaki terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Gottschall et al. (2018) & Suprak et al. (2011)",
@@ -595,6 +675,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/embed/dluhsF6hP2w",
     fullVideoImageUrl: "https://img.youtube.com/vi/dluhsF6hP2w/hqdefault.jpg",
     summary: "Variasi push-up lantai intensif yang memaksimalkan isolasi beban tubuh pada ketiga kepala otot triceps dan dada bagian dalam.",
+    formCoach: {
+      ruleSetId: "pushup-variant",
+      view: "side",
+      cameraTip: "Letakkan HP di dekat lantai, 2–3 meter di samping atau depan Anda.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Cogley et al. (2005)",
@@ -634,6 +719,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/embed/WVYkIlM2M9g",
     fullVideoImageUrl: "https://img.youtube.com/vi/WVYkIlM2M9g/hqdefault.jpg",
     summary: "Latihan calisthenics murni pengganti mesin kabel untuk melatih kekuatan bahu vertikal dan deltoid anterior di atas lantai.",
+    formCoach: {
+      ruleSetId: "pushup-variant",
+      view: "side",
+      cameraTip: "Letakkan HP di dekat lantai, 2–3 meter di samping Anda, postur huruf V terlihat penuh.",
+    },
     researchCitation: {
       journal: "European Journal of Applied Physiology",
       study: "Calatayud et al. (2015) & Ebben et al. (2011)",
@@ -673,6 +763,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/8voSXZyTp2A",
     fullVideoImageUrl: "https://img.youtube.com/vi/8voSXZyTp2A/hqdefault.jpg",
     summary: "Gerakan fundamental calisthenics tanpa alat untuk membangun daya tahan otot paha depan, fleksibilitas panggul, dan mobilitas sendi.",
+    formCoach: {
+      ruleSetId: "squat",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, seluruh tubuh terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Caterisano et al. (2002)",
@@ -749,6 +844,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/ZPG8OsHKXLw",
     fullVideoImageUrl: "https://img.youtube.com/vi/ZPG8OsHKXLw/hqdefault.jpg",
     summary: "Raja latihan tarik calisthenics untuk melebarkan sayap punggung dan melatih kekuatan cengkeraman tangan pada palang pull-up.",
+    formCoach: {
+      ruleSetId: "pull-vertical",
+      view: "side",
+      cameraTip: "Letakkan HP 2–3 meter di samping atau depan palang, tubuh dari kepala hingga kaki terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Youdas et al. (2010)",
@@ -787,6 +887,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/embed/qVsbO098ueU",
     fullVideoImageUrl: "https://img.youtube.com/vi/qVsbO098ueU/hqdefault.jpg",
     summary: "Latihan core gantung calisthenics yang sangat efektif mengisolasi otot perut bawah dan fleksor panggul tanpa membebani leher.",
+    formCoach: {
+      ruleSetId: "hanging-core",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi dada, 2–3 meter di samping Anda, posisi menggantung terlihat utuh.",
+    },
     researchCitation: {
       journal: "Physical Therapy Journal",
       study: "Escamilla et al. (2006)",
@@ -825,6 +930,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/nVIeqNLGLa0",
     fullVideoImageUrl: "https://img.youtube.com/vi/nVIeqNLGLa0/hqdefault.jpg",
     summary: "Latihan isometrik murni lantai untuk menciptakan dinding perut yang kokoh dan melindungi tulang belakang dari cedera.",
+    formCoach: {
+      ruleSetId: "plank",
+      view: "side",
+      cameraTip: "Letakkan HP di dekat lantai, 2–3 meter di samping Anda, tubuh horizontal terlihat penuh.",
+    },
     researchCitation: {
       journal: "Sports Biomechanics",
       study: "Schoenfeld et al. (2014) & Snarr & Esco (2014)",
@@ -868,6 +978,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/2gXtvqLa_T8",
     fullVideoImageUrl: "https://img.youtube.com/vi/2gXtvqLa_T8/hqdefault.jpg",
     summary: "Latihan daya ledak pinggul (hip hinge) yang membakar kalori tinggi sekaligus memperkuat postur rantai posterior tubuh murni dengan kettlebell.",
+    formCoach: {
+      ruleSetId: "hinge-ballistic",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, ruang ayunan beban terlihat jelas.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "McGill & Marshall (2012) & Lake & Lauder (2012)",
@@ -907,6 +1022,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/EKhUewdihYA",
     fullVideoImageUrl: "https://img.youtube.com/vi/EKhUewdihYA/hqdefault.jpg",
     summary: "Latihan paha depan dan pinggul dengan posisi beban kettlebell ergonomis yang menjaga postur tulang belakang tetap tegak.",
+    formCoach: {
+      ruleSetId: "squat",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, seluruh tubuh terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Applied Biomechanics",
       study: "Beardsley & Contreras (2014)",
@@ -983,6 +1103,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/4KqpZX_awC4",
     fullVideoImageUrl: "https://img.youtube.com/vi/4KqpZX_awC4/hqdefault.jpg",
     summary: "Latihan menarik unilateral dengan pegangan tebal kettlebell yang melatih ketebalan lats dan daya cengkeram telapak tangan.",
+    formCoach: {
+      ruleSetId: "row",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, punggung terlihat jelas.",
+    },
     researchCitation: {
       journal: "Canadian Journal of Applied Physiology",
       study: "Behm et al. (2005)",
@@ -1180,6 +1305,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/8iPEnn-ltC8",
     fullVideoImageUrl: "https://img.youtube.com/vi/8iPEnn-ltC8/hqdefault.jpg",
     summary: "Bench press pada sudut kemiringan 30 derajat untuk mengisolasi ketebalan serat clavicular dada atas.",
+    formCoach: {
+      ruleSetId: "press-horizontal",
+      view: "side",
+      cameraTip: "Akurasi terbatas. Letakkan HP 2–3 meter di samping bangku incline.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Trebs et al. (2010)",
@@ -1216,6 +1346,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/7bZ0p_i1dCc",
     fullVideoImageUrl: "https://img.youtube.com/vi/7bZ0p_i1dCc/hqdefault.jpg",
     summary: "Gerakan hip hinge murni untuk melatih peregangan eksentrik maksimal pada hamstring dan pembentukan otot bokong.",
+    formCoach: {
+      ruleSetId: "hinge",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, fokus engsel pinggul.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "McAllister et al. (2014)",
@@ -1327,6 +1462,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/2C-uNgKwPLE",
     fullVideoImageUrl: "https://img.youtube.com/vi/2C-uNgKwPLE/hqdefault.jpg",
     summary: "Latihan kaki unilateral intensif untuk mengoreksi ketimpangan kekuatan kaki dan membangun hipertrofi glutes dan quads.",
+    formCoach: {
+      ruleSetId: "split",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, seluruh tubuh terlihat.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "DeForest et al. (2014)",
@@ -1438,6 +1578,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/2z8JmcrW-As",
     fullVideoImageUrl: "https://img.youtube.com/vi/2z8JmcrW-As/hqdefault.jpg",
     summary: "Latihan dorong calisthenics berat terbaik untuk membangun kekuatan dorong triceps dan serat bawah dada.",
+    formCoach: {
+      ruleSetId: "dip",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggang, 2–3 meter di samping palang dips.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Calatayud et al. (2017)",
@@ -1475,6 +1620,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/fkywZ6O6p6k",
     fullVideoImageUrl: "https://img.youtube.com/vi/fkywZ6O6p6k/hqdefault.jpg",
     summary: "Aktivasi otot bokong murni di lantai untuk memperbaiki postur panggul dan kesehatan pinggang bawah.",
+    formCoach: {
+      ruleSetId: "bridge",
+      view: "side",
+      cameraTip: "Letakkan HP di dekat lantai, 2 meter di samping Anda, tubuh dari bahu ke lutut terlihat penuh.",
+    },
     researchCitation: {
       journal: "Journal of Orthopaedic & Sports Physical Therapy (JOSPT)",
       study: "Contreras et al. (2015)",
@@ -1512,6 +1662,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/M_SgA2C_dTU",
     fullVideoImageUrl: "https://img.youtube.com/vi/M_SgA2C_dTU/hqdefault.jpg",
     summary: "Latihan betis calisthenics unilateral untuk melatih daya lenting tendon achilles dan kekuatan betis.",
+    formCoach: {
+      ruleSetId: "calf",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi lutut, 1.5–2 meter di samping Anda, tungkai bawah terlihat jelas.",
+    },
     researchCitation: {
       journal: "Journal of Applied Biomechanics",
       study: "Riemann et al. (2011)",
@@ -1549,6 +1704,11 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
     videoUrl: "https://www.youtube.com/shorts/q77zYvK6iZg",
     fullVideoImageUrl: "https://img.youtube.com/vi/q77zYvK6iZg/hqdefault.jpg",
     summary: "Latihan balistik tingkat lanjut untuk melatih kecepatan, daya ledak hip hinge, dan stabilitas bahu overhead.",
+    formCoach: {
+      ruleSetId: "hinge-ballistic",
+      view: "side",
+      cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, ruang angkatan vertikal terlihat penuh.",
+    },
     researchCitation: {
       journal: "Journal of Strength & Conditioning Research (JSCR)",
       study: "Lake & Lauder (2012)",

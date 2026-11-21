@@ -8,7 +8,6 @@ import {
   Zap,
   CheckCircle2,
   Layers,
-  Camera,
   LineChart,
   Crown,
   Bell
@@ -91,21 +90,6 @@ export const ProFeatureModal: React.FC<ProFeatureModalProps> = ({
             </div>
 
             {/* Feature 2 */}
-            <div className="p-3.5 rounded-2xl bg-[#141418] border border-zinc-800 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-cyan-400/15 text-cyan-400 border border-cyan-400/30 flex items-center justify-center shrink-0 mt-0.5">
-                <Camera className="w-4 h-4 stroke-[2.5]" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-metric text-sm font-bold uppercase text-white">
-                  AI Real-Time Pose Angle Detector
-                </h4>
-                <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
-                  Analisis sudut siku 90° dan kedalaman squat otomatis via kamera perangkat Anda secara offline tanpa komputasi cloud.
-                </p>
-              </div>
-            </div>
-
-            {/* Feature 3 */}
             <div className="p-3.5 rounded-2xl bg-[#141418] border border-zinc-800 flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-lime-400/15 text-lime-400 border border-lime-400/30 flex items-center justify-center shrink-0 mt-0.5">
                 <LineChart className="w-4 h-4 stroke-[2.5]" />
