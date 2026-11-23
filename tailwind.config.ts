@@ -31,8 +31,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        metric: ["Oswald", "Impact", "sans-serif"],
-        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        metric: ["var(--font-oswald)", "Oswald", "Impact", "sans-serif"],
+        sans: ["var(--font-inter)", "Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       boxShadow: {
         volt: "0 0 20px rgba(223, 255, 0, 0.35)",

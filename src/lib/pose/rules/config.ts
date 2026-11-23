@@ -9,6 +9,8 @@ import { angleAt, angleFromVertical } from "../geometry";
 import {
   Landmark,
   NOSE,
+  L_EAR,
+  R_EAR,
   L_SHOULDER,
   R_SHOULDER,
   L_ELBOW,
@@ -31,8 +33,91 @@ import {
 // hanya dipicu bila terjadi konsisten >= 3 frame berturut-turut (mencegah jitter sensor).
 const streakMap = new Map<string, number>();
 
+// Tracking titik terendah hinge untuk deteksi hip-shoot
+let hingeBottomHipY: number | null = null;
+let hingeBottomShoulderY: number | null = null;
+
+export function resetHingeTracking(): void {
+  hingeBottomHipY = null;
+  hingeBottomShoulderY = null;
+}
+
+// Tracking FPS untuk gerakan balistik (kb-swing, kb-snatch)
+let ballisticOverrideFps: number | null = null;
+let ballisticLastTimeMs: number = 0;
+let ballisticAverageFps: number = 30; // default 30 fps
+let ballisticFrameCount: number = 0;
+
+export function setBallisticFps(fps: number | null): void {
+  ballisticOverrideFps = fps;
+}
+
+export function resetBallisticFps(): void {
+  ballisticOverrideFps = null;
+  ballisticLastTimeMs = 0;
+  ballisticAverageFps = 30;
+  ballisticFrameCount = 0;
+}
+
+export function recordBallisticFrame(timestampMs: number): void {
+  if (ballisticLastTimeMs > 0 && timestampMs > ballisticLastTimeMs) {
+    const dt = timestampMs - ballisticLastTimeMs;
+    if (dt > 0) {
+      const instantFps = 1000 / dt;
+      ballisticAverageFps = ballisticAverageFps * 0.8 + instantFps * 0.2;
+    }
+  }
+  ballisticLastTimeMs = timestampMs;
+  ballisticFrameCount++;
+}
+
+export function isBallisticFpsTooLow(ctx?: RepContext): boolean {
+  if (ctx && ctx.exerciseId !== "kb-swing" && ctx.exerciseId !== "kb-snatch") {
+    return false;
+  }
+  if (ballisticOverrideFps !== null) {
+    return ballisticOverrideFps < 24;
+  }
+  return ballisticAverageFps < 24;
+}
+
+// Tracking baris (row) dan pull-up
+let rowTrunkBaseline: number | null = null;
+let rowPullMinTrunk: number = 999;
+let rowPullMaxTrunk: number = -999;
+let rowElbowPassedBack: boolean = false;
+let pullChinPassedBar: boolean = false;
+
+export function resetRowTracking(): void {
+  rowTrunkBaseline = null;
+  rowPullMinTrunk = 999;
+  rowPullMaxTrunk = -999;
+  rowElbowPassedBack = false;
+}
+
+export function resetPullupTracking(): void {
+  pullChinPassedBar = false;
+}
+
+let dipEarShoulderBaseline: number | null = null;
+let benchHipBaseline: number | null = null;
+
+export function resetDipTracking(): void {
+  dipEarShoulderBaseline = null;
+}
+
+export function resetPressHorizontalTracking(): void {
+  benchHipBaseline = null;
+}
+
 export function resetViolationStreaks(): void {
   streakMap.clear();
+  resetHingeTracking();
+  resetBallisticFps();
+  resetRowTracking();
+  resetPullupTracking();
+  resetDipTracking();
+  resetPressHorizontalTracking();
 }
 
 export function checkConsecutiveViolation(
@@ -57,6 +142,7 @@ export function checkConsecutiveViolation(
 export function getSideJoints(landmarks: Landmark[], side: "left" | "right") {
   const isLeft = side === "left";
   return {
+    ear: landmarks[isLeft ? L_EAR : R_EAR],
     shoulder: landmarks[isLeft ? L_SHOULDER : R_SHOULDER],
     elbow: landmarks[isLeft ? L_ELBOW : R_ELBOW],
     wrist: landmarks[isLeft ? L_WRIST : R_WRIST],
@@ -70,6 +156,7 @@ export function getSideJoints(landmarks: Landmark[], side: "left" | "right") {
 
 // ============================================================================
 // 1. ATURAN SQUAT (Air Squat, Goblet Squat, Back Squat)
+// Sudut pandang: SAMPING. Catatan: JANGAN membuat cek lutut melewati ujung jari kaki atau punggung membulat.
 // ============================================================================
 
 export const SQUAT_DEPTH_CHECK: FormCheck = {
@@ -79,6 +166,7 @@ export const SQUAT_DEPTH_CHECK: FormCheck = {
   when: "bottom",
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
     // Sudut lutut minimum di fase terbawah (bottom)
+    // heuristik, toleransi ±10–15°
     // Standar paralel: sudut lutut < 110°. Jika >= 110°, paha belum mencapai paralel
     const minKneeAngle = ctx.minMetricValue;
     if (minKneeAngle >= 110) {
@@ -104,6 +192,7 @@ export const SQUAT_TRUNK_LEAN_CHECK: FormCheck = {
     }
 
     // Sudut garis bahu-ke-pinggul terhadap sumbu vertikal
+    // heuristik, toleransi ±10–15°
     const leanAngle = angleFromVertical(shoulder, hip);
 
     // Back squat memiliki toleransi kemiringan lebih besar (60°) dibanding bodyweight/goblet (45°)
@@ -132,6 +221,7 @@ export const SQUAT_HEEL_LIFT_CHECK: FormCheck = {
     if (!heel) return { ok: true, value: 0, cue: "" };
 
     // Pada koordinat layar normalisasi, Y makin kecil = makin ke atas (tumit terangkat)
+    // heuristik, toleransi ±10–15°
     const liftDist = ctx.heelYBaseline - heel.y;
     const bodyHeight = Math.max(0.1, ctx.bodyHeight);
     const liftRatio = liftDist / bodyHeight;
@@ -155,6 +245,7 @@ export const SQUAT_DESCENT_SPEED_CHECK: FormCheck = {
   when: "bottom",
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
     // Fase turun (eksentrik) yang terburu-buru (< 1000 ms)
+    // heuristik, toleransi ±10–15°
     if (ctx.descentDurationMs > 0 && ctx.descentDurationMs < 1000) {
       return {
         ok: false,
@@ -204,6 +295,7 @@ export const SQUAT_RULESET: RuleSet = {
 
 // ============================================================================
 // 2. ATURAN PUSH-UP
+// Sudut pandang: SAMPING. Catatan: JANGAN membuat cek siku mengembang (flare) di view samping.
 // ============================================================================
 
 export const PUSHUP_DEPTH_CHECK: FormCheck = {
@@ -213,6 +305,7 @@ export const PUSHUP_DEPTH_CHECK: FormCheck = {
   when: "bottom",
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
     // Sudut siku minimum di bawah harus <= 100° (sekitar 90°)
+    // heuristik, toleransi ±10–15°
     const minElbowAngle = ctx.minMetricValue;
     if (minElbowAngle > 100) {
       return {
@@ -234,6 +327,7 @@ export const PUSHUP_HIP_SAG_CHECK: FormCheck = {
     const { shoulder, hip, ankle } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip || !ankle) return { ok: true, value: 180, cue: "" };
 
+    // heuristik, toleransi ±10–15°
     const bodyAngle = angleAt(shoulder, hip, ankle);
 
     // Garis lurus bahu-pergelangan kaki: Y di posisi X pinggul
@@ -273,6 +367,7 @@ export const PUSHUP_HIP_PIKE_CHECK: FormCheck = {
         : (shoulder.y + ankle.y) / 2;
 
     // Pinggul naik di atas garis lurus (Y lebih kecil) melebihi 8% panjang tubuh
+    // heuristik, toleransi ±10–15°
     const bodyHeight = Math.max(0.1, ctx.bodyHeight);
     const pikeDist = expectedY - hip.y;
     const pikeRatio = pikeDist / bodyHeight;
@@ -297,6 +392,7 @@ export const PUSHUP_LOCKOUT_CHECK: FormCheck = {
     const { shoulder, elbow, wrist } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !elbow || !wrist) return { ok: true, value: 180, cue: "" };
 
+    // heuristik, toleransi ±10–15°
     const elbowAngle = angleAt(shoulder, elbow, wrist);
     if (elbowAngle < 160) {
       return {
@@ -311,7 +407,7 @@ export const PUSHUP_LOCKOUT_CHECK: FormCheck = {
 
 export const PUSHUP_RULESET: RuleSet = {
   id: "pushup",
-  exerciseIds: ["bw-pushup"],
+  exerciseIds: ["bw-pushup", "bw-diamond-pushup"],
   view: "side",
   requiredLandmarks: [
     L_SHOULDER,
@@ -334,7 +430,7 @@ export const PUSHUP_RULESET: RuleSet = {
       return angleAt(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 155,
-    downThreshold: 100,
+    downThreshold: 120, // heuristik, toleransi ±10–15° (margin >= 15° di atas ambang cek 100)
     minRepMs: 600,
   },
   checks: [
@@ -347,6 +443,7 @@ export const PUSHUP_RULESET: RuleSet = {
 
 // ============================================================================
 // 3. ATURAN PLANK (Mode Hold)
+// Sudut pandang: SAMPING.
 // ============================================================================
 
 export const PLANK_HIP_SAG_CHECK: FormCheck = {
@@ -358,6 +455,7 @@ export const PLANK_HIP_SAG_CHECK: FormCheck = {
     const { shoulder, hip, ankle } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip || !ankle) return { ok: true, value: 180, cue: "" };
 
+    // heuristik, toleransi ±10–15°
     const bodyAngle = angleAt(shoulder, hip, ankle);
     const dx = ankle.x - shoulder.x;
     const expectedY =
@@ -394,6 +492,7 @@ export const PLANK_HIP_PIKE_CHECK: FormCheck = {
         ? shoulder.y + ((hip.x - shoulder.x) / dx) * (ankle.y - shoulder.y)
         : (shoulder.y + ankle.y) / 2;
 
+    // heuristik, toleransi ±10–15°
     const bodyHeight = Math.max(0.1, ctx.bodyHeight);
     const pikeDist = expectedY - hip.y;
     const pikeRatio = pikeDist / bodyHeight;
@@ -418,6 +517,7 @@ export const PLANK_ELBOW_UNDER_SHOULDER_CHECK: FormCheck = {
     const { shoulder, elbow } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !elbow) return { ok: true, value: 0, cue: "" };
 
+    // heuristik, toleransi ±10–15°
     const bodyHeight = Math.max(0.1, ctx.bodyHeight);
     const horizontalDiff = Math.abs(shoulder.x - elbow.x);
     const diffRatio = horizontalDiff / bodyHeight;
@@ -480,7 +580,7 @@ export const FRONT_KNEE_ANGLE_CHECK: FormCheck = {
       return {
         ok: false,
         value: Math.round(minAngle),
-        cue: "Turunkan lutut depan lebih dalam",
+        cue: "Turun sampai lutut depan sekitar 90 derajat",
       };
     }
     return { ok: true, value: Math.round(minAngle), cue: "Kedalaman lunge baik" };
@@ -491,20 +591,18 @@ export const LUNGE_TRUNK_CHECK: FormCheck = {
   id: "lunge-trunk",
   label: "Kemiringan Batang Tubuh",
   severity: "minor", // saran, bukan kesalahan
-  when: "continuous",
+  when: "bottom",
   evaluate: (frame: PoseFrame): CheckResult => {
     const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
     const trunkLean = angleFromVertical(shoulder, hip);
-    const isViolating = trunkLean > 40;
-    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
-    if (checkConsecutiveViolation("lunge-trunk", isViolating, 3)) {
+    if (trunkLean > 40) {
       return {
         ok: false,
         value: Math.round(trunkLean),
-        cue: "Tegakkan dada sedikit",
+        cue: "Jaga batang tubuh tetap tegak",
       };
     }
     return { ok: true, value: Math.round(trunkLean), cue: "" };
@@ -533,7 +631,7 @@ export const FRONT_HEEL_CHECK: FormCheck = {
       return {
         ok: false,
         value: Math.round(liftRatio * 100),
-        cue: "Jaga tumit depan tetap menapak",
+        cue: "Tumit depan tetap menapak",
       };
     }
     return { ok: true, value: 0, cue: "" };
@@ -577,7 +675,7 @@ export const SPLIT_RULESET: RuleSet = {
 
 // ============================================================================
 // 5. ATURAN HINGE (bb-deadlift, bb-romanian-deadlift)
-// Sudut pandang: SAMPING. Catatan: JANGAN membuat cek punggung membulat (back-round).
+// Sudut pandang: SAMPING. Catatan: JANGAN membuat cek punggung membulat (back-round) atau lintasan barbel.
 // ============================================================================
 
 export const HIP_SHOOT_CHECK: FormCheck = {
@@ -589,20 +687,50 @@ export const HIP_SHOOT_CHECK: FormCheck = {
     const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
-    // heuristik, toleransi ±10–15°
-    // Pada fase naik (ascending), jika dada tetap terlalu condong (trunk lean > 65°)
-    const trunkLean = angleFromVertical(shoulder, hip);
-    const isViolating = ctx.currentPhase === "ascending" && trunkLean > 65;
+    // Simpan posisi titik terbawah saat fase descending atau bottom
+    if (ctx.currentPhase === "descending" || ctx.currentPhase === "bottom") {
+      if (hingeBottomHipY === null || hip.y > hingeBottomHipY) {
+        hingeBottomHipY = hip.y;
+      }
+      if (hingeBottomShoulderY === null || shoulder.y > hingeBottomShoulderY) {
+        hingeBottomShoulderY = shoulder.y;
+      }
+    } else if (ctx.currentPhase === "idle") {
+      hingeBottomHipY = null;
+      hingeBottomShoulderY = null;
+    }
+
+    let isViolating = false;
+    let diffPercent = 0;
+
+    if (ctx.currentPhase === "ascending") {
+      // heuristik, toleransi ±10–15°
+      // Selisih kenaikan y pinggul vs bahu > 10% panjang badan
+      const bodyHeight = Math.max(0.1, ctx.bodyHeight);
+      if (hingeBottomHipY !== null && hingeBottomShoulderY !== null) {
+        const hipRise = hingeBottomHipY - hip.y;
+        const shoulderRise = hingeBottomShoulderY - shoulder.y;
+        const diff = hipRise - shoulderRise;
+        const diffRatio = diff / bodyHeight;
+        diffPercent = Math.round(diffRatio * 100);
+        isViolating = diffRatio > 0.10;
+      } else {
+        // Fallback jika frame ascending tanpa melalui descending: dada tetap terlalu condong
+        const trunkLean = angleFromVertical(shoulder, hip);
+        isViolating = trunkLean > 60;
+        diffPercent = Math.round(trunkLean);
+      }
+    }
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
     if (checkConsecutiveViolation("hip-shoot", isViolating, 3)) {
       return {
         ok: false,
-        value: Math.round(trunkLean),
-        cue: "Angkat dada bersamaan dengan pinggul",
+        value: diffPercent,
+        cue: "Naikkan pinggul dan bahu bersamaan",
       };
     }
-    return { ok: true, value: Math.round(trunkLean), cue: "" };
+    return { ok: true, value: diffPercent, cue: "" };
   },
 };
 
@@ -611,7 +739,10 @@ export const HIP_LOCKOUT_CHECK: FormCheck = {
   label: "Kunci Pinggul di Atas",
   severity: "major",
   when: "top",
-  evaluate: (frame: PoseFrame): CheckResult => {
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    // Pembatas balistik: jika FPS < 24, jangan keluarkan koreksi
+    if (isBallisticFpsTooLow(ctx)) return { ok: true, value: 180, cue: "" };
+
     const { shoulder, hip, knee } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip || !knee) return { ok: true, value: 180, cue: "" };
 
@@ -621,7 +752,7 @@ export const HIP_LOCKOUT_CHECK: FormCheck = {
       return {
         ok: false,
         value: Math.round(hipAngle),
-        cue: "Kunci pinggul di posisi tegak",
+        cue: "Berdiri tegak penuh di atas",
       };
     }
     return { ok: true, value: Math.round(hipAngle), cue: "Kunci pinggul sempurna" };
@@ -631,7 +762,7 @@ export const HIP_LOCKOUT_CHECK: FormCheck = {
 export const HINGE_NOT_SQUAT_CHECK: FormCheck = {
   id: "hinge-not-squat",
   label: "Pola Engsel Pinggul RDL",
-  severity: "major",
+  severity: "minor",
   when: "continuous",
   evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
     // Berlaku spesifik untuk Romanian Deadlift di mana lutut hanya soft bend
@@ -641,16 +772,16 @@ export const HINGE_NOT_SQUAT_CHECK: FormCheck = {
     if (!hip || !knee || !ankle) return { ok: true, value: 180, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    // Lutut tertekuk berlebih (> 35° dari posisi hampir lurus 165° -> sudut < 130°)
+    // Sudut lutut berubah > 35° antar posisi atas (~170°-175°) dan bawah -> lutut tertekuk < 135°
     const kneeAngle = angleAt(hip, knee, ankle);
-    const isViolating = kneeAngle < 130;
+    const isViolating = kneeAngle < 135;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
     if (checkConsecutiveViolation("hinge-not-squat", isViolating, 3)) {
       return {
         ok: false,
         value: Math.round(kneeAngle),
-        cue: "Lutut sedikit ditekuk, dominan pinggul",
+        cue: "Dorong pinggul ke belakang, lutut jangan menekuk",
       };
     }
     return { ok: true, value: Math.round(kneeAngle), cue: "" };
@@ -660,20 +791,24 @@ export const HINGE_NOT_SQUAT_CHECK: FormCheck = {
 export const NO_LEAN_BACK_CHECK: FormCheck = {
   id: "no-lean-back",
   label: "Hiperektensi Pinggul ke Belakang",
-  severity: "minor",
+  severity: "major",
   when: "top",
-  evaluate: (frame: PoseFrame): CheckResult => {
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    // Pembatas balistik: jika FPS < 24, jangan keluarkan koreksi
+    if (isBallisticFpsTooLow(ctx)) return { ok: true, value: 0, cue: "" };
+
     const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
+    // Bahu condong ke belakang melewati pinggul > 10° dari vertikal
     const leanAngle = angleFromVertical(shoulder, hip);
-    const isLeaningBack = shoulder.x < hip.x - 0.04 && leanAngle > 12;
+    const isLeaningBack = shoulder.x < hip.x - 0.04 && leanAngle > 10;
     if (isLeaningBack) {
       return {
         ok: false,
         value: Math.round(leanAngle),
-        cue: "Jangan condong ke belakang",
+        cue: "Jangan condong ke belakang di atas",
       };
     }
     return { ok: true, value: Math.round(leanAngle), cue: "" };
@@ -702,9 +837,9 @@ export const HINGE_RULESET: RuleSet = {
       if (!joints.shoulder || !joints.hip || !joints.knee) return 180;
       return angleAt(joints.shoulder, joints.hip, joints.knee);
     },
-    upThreshold: 160, // heuristik, toleransi ±10–15°
-    downThreshold: 135, // heuristik, toleransi ±10–15°
-    minRepMs: 600,
+    upThreshold: 160, // heuristik, toleransi ±10–15° (penyelesaian repetisi; lockout penuh dicek pada 165°)
+    downThreshold: 120, // heuristik, toleransi ±10–15°
+    minRepMs: 1000,
   },
   checks: [
     HIP_SHOOT_CHECK,
@@ -723,21 +858,23 @@ export const SWING_HEIGHT_CHECK: FormCheck = {
   id: "swing-height",
   label: "Tinggi Ayunan Beban",
   severity: "minor",
-  when: "continuous",
-  evaluate: (frame: PoseFrame): CheckResult => {
+  when: "top",
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    if (ctx.exerciseId !== "kb-swing") return { ok: true, value: 0, cue: "" };
+    // Pembatas balistik: jika FPS < 24, jangan keluarkan koreksi
+    if (isBallisticFpsTooLow(ctx)) return { ok: true, value: 0, cue: "" };
+
     const { shoulder, wrist } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !wrist) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    // Pergelangan tangan melewati tinggi bahu secara berlebihan (wrist.y lebih tinggi dari shoulder.y)
-    const isViolating = wrist.y < shoulder.y - 0.05;
-
-    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
-    if (checkConsecutiveViolation("swing-height", isViolating, 3)) {
+    // Pergelangan tangan melewati tinggi bahu (wrist.y lebih tinggi dari shoulder.y)
+    const isViolating = wrist.y < shoulder.y;
+    if (isViolating) {
       return {
         ok: false,
         value: Math.round((shoulder.y - wrist.y) * 100),
-        cue: "Jangan ayun terlalu tinggi",
+        cue: "Ayun sampai setinggi dada, bukan lebih",
       };
     }
     return { ok: true, value: 0, cue: "" };
@@ -762,13 +899,14 @@ export const HINGE_BALLISTIC_RULESET: RuleSet = {
   counter: {
     // Metrik: sudut pinggul (bahu-pinggul-lutut)
     metric: (frame: PoseFrame): number => {
+      recordBallisticFrame(frame.timestampMs);
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.hip || !joints.knee) return 180;
       return angleAt(joints.shoulder, joints.hip, joints.knee);
     },
-    upThreshold: 160, // heuristik, toleransi ±10–15°
-    downThreshold: 135, // heuristik, toleransi ±10–15°
-    minRepMs: 400, // balistik
+    upThreshold: 160, // heuristik, toleransi ±10–15° (penyelesaian repetisi; lockout penuh dicek pada 165°)
+    downThreshold: 120, // heuristik, toleransi ±10–15°
+    minRepMs: 700,
   },
   checks: [
     HIP_LOCKOUT_CHECK,
@@ -820,7 +958,7 @@ export const CALF_ROM_CHECK: FormCheck = {
       return {
         ok: false,
         value: Math.round(minMetric),
-        cue: "Angkat tumit lebih tinggi",
+        cue: "Naik setinggi mungkin, turun penuh",
       };
     }
     return { ok: true, value: Math.round(minMetric), cue: "Rentang jinjit baik" };
@@ -839,7 +977,7 @@ export const CALF_NO_BOUNCE_CHECK: FormCheck = {
       return {
         ok: false,
         value: ctx.descentDurationMs,
-        cue: "Kontrol gerakan tanpa memantul",
+        cue: "Tahan sebentar di atas, jangan memantul",
       };
     }
     return { ok: true, value: ctx.descentDurationMs, cue: "" };
@@ -868,7 +1006,7 @@ export const CALF_RULESET: RuleSet = {
       return 180 - Math.min(60, lift * 400);
     },
     upThreshold: 170, // heuristik, toleransi ±10–15°
-    downThreshold: 155, // heuristik, toleransi ±10–15°
+    downThreshold: 165, // heuristik, toleransi ±10–15° (memungkinkan repetisi terhitung saat metric > 158)
     minRepMs: 500,
   },
   checks: [
@@ -898,7 +1036,7 @@ export const FULL_HIP_EXT_CHECK: FormCheck = {
       return {
         ok: false,
         value: Math.round(hipAngle),
-        cue: "Dorong pinggul hingga sejajar",
+        cue: "Dorong pinggul sampai bahu-lutut lurus",
       };
     }
     return { ok: true, value: Math.round(hipAngle), cue: "Ekstensi pinggul penuh" };
@@ -927,7 +1065,7 @@ export const HEEL_PRESS_CHECK: FormCheck = {
       return {
         ok: false,
         value: Math.round(liftRatio * 100),
-        cue: "Dorong melalui tumit",
+        cue: "Tekan tumit ke lantai",
       };
     }
     return { ok: true, value: 0, cue: "" };
@@ -984,7 +1122,7 @@ export const KNEE_RAISE_HEIGHT_CHECK: FormCheck = {
       return {
         ok: false,
         value: Math.round(minAngle),
-        cue: "Angkat lutut di atas pinggul",
+        cue: "Angkat lutut minimal setinggi pinggul",
       };
     }
     return { ok: true, value: Math.round(minAngle), cue: "Tinggi lutut optimal" };
@@ -994,7 +1132,7 @@ export const KNEE_RAISE_HEIGHT_CHECK: FormCheck = {
 export const NO_SWING_CHECK: FormCheck = {
   id: "no-swing",
   label: "Stabilitas Tanpa Berayun",
-  severity: "major",
+  severity: "minor",
   when: "continuous",
   evaluate: (frame: PoseFrame): CheckResult => {
     const { hip } = getSideJoints(frame.landmarks, frame.side);
@@ -1057,23 +1195,25 @@ export const HANGING_CORE_RULESET: RuleSet = {
 export const OHP_STACK_CHECK: FormCheck = {
   id: "ohp-stack",
   label: "Penyelarasan Beban Vertikal",
-  severity: "major",
+  severity: "minor",
   when: "top",
-  evaluate: (frame: PoseFrame): CheckResult => {
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
     const { shoulder, wrist } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !wrist) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    // Pergelangan harus berada tepat di atas bahu pada puncak
+    // Selisih horizontal pergelangan–bahu > 8% panjang badan
+    const bodyHeight = Math.max(0.1, ctx.bodyHeight);
     const horizontalOffset = Math.abs(wrist.x - shoulder.x);
-    if (horizontalOffset > 0.08) {
+    const offsetRatio = horizontalOffset / bodyHeight;
+    if (offsetRatio > 0.08) {
       return {
         ok: false,
-        value: Math.round(horizontalOffset * 100),
-        cue: "Posisikan pergelangan lurus di atas bahu",
+        value: Math.round(offsetRatio * 100),
+        cue: "Tumpuk pergelangan di atas bahu",
       };
     }
-    return { ok: true, value: Math.round(horizontalOffset * 100), cue: "Posisi lengan sejajar baik" };
+    return { ok: true, value: Math.round(offsetRatio * 100), cue: "Posisi lengan sejajar baik" };
   },
 };
 
@@ -1089,14 +1229,18 @@ export const OHP_LEAN_BACK_CHECK: FormCheck = {
     // heuristik, toleransi ±10–15°
     // Batang tubuh condong ke belakang > 12° dari vertikal
     const trunkLean = angleFromVertical(shoulder, hip);
-    const isLeaningBack = (frame.side === "left" ? shoulder.x < hip.x : shoulder.x > hip.x) && trunkLean > 12;
+    const nose = frame.landmarks[NOSE];
+    const isFacingLeft = nose ? nose.x < hip.x : frame.side === "left";
+    const isLeaningBack = isFacingLeft
+      ? shoulder.x > hip.x + 0.02 && trunkLean > 12
+      : shoulder.x < hip.x - 0.02 && trunkLean > 12;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
     if (checkConsecutiveViolation("ohp-lean-back", isLeaningBack, 3)) {
       return {
         ok: false,
         value: Math.round(trunkLean),
-        cue: "Jangan condongkan badan ke belakang",
+        cue: "Jangan melengkung ke belakang",
       };
     }
     return { ok: true, value: Math.round(trunkLean), cue: "" };
@@ -1106,19 +1250,20 @@ export const OHP_LEAN_BACK_CHECK: FormCheck = {
 export const PRESS_LOCKOUT_CHECK: FormCheck = {
   id: "press-lockout",
   label: "Ekstensi Siku Penuh di Atas",
-  severity: "major",
+  severity: "minor",
   when: "top",
   evaluate: (frame: PoseFrame): CheckResult => {
     const { shoulder, elbow, wrist } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !elbow || !wrist) return { ok: true, value: 180, cue: "" };
 
     // heuristik, toleransi ±10–15°
+    // siku di atas < 160
     const elbowAngle = angleAt(shoulder, elbow, wrist);
-    if (elbowAngle < 165) {
+    if (elbowAngle < 160) {
       return {
         ok: false,
         value: Math.round(elbowAngle),
-        cue: "Kunci siku lurus di atas",
+        cue: "Luruskan siku di atas",
       };
     }
     return { ok: true, value: Math.round(elbowAngle), cue: "Ekstensi siku sempurna" };
@@ -1148,9 +1293,9 @@ export const PRESS_VERTICAL_RULESET: RuleSet = {
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
       return angleAt(joints.shoulder, joints.elbow, joints.wrist);
     },
-    upThreshold: 160, // heuristik, toleransi ±10–15°
-    downThreshold: 100, // heuristik, toleransi ±10–15°
-    minRepMs: 600,
+    upThreshold: 155, // heuristik, toleransi ±10–15° (rep selesai; lockout penuh dicek pada 160°)
+    downThreshold: 90, // heuristik, toleransi ±10–15°
+    minRepMs: 900,
   },
   checks: [
     OHP_STACK_CHECK,
@@ -1161,7 +1306,7 @@ export const PRESS_VERTICAL_RULESET: RuleSet = {
 
 // ============================================================================
 // 11. ATURAN ROW (bb-bent-row, db-single-row, kb-single-row)
-// Sudut pandang: SAMPING. Catatan: Rotasi batang tubuh TIDAK dinilai.
+// Sudut pandang: SAMPING. Catatan: JANGAN membuat cek punggung membulat, rotasi batang tubuh, atau lintasan beban.
 // ============================================================================
 
 export const ROW_TRUNK_STABLE_CHECK: FormCheck = {
@@ -1174,10 +1319,13 @@ export const ROW_TRUNK_STABLE_CHECK: FormCheck = {
     if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
+    // Sudut batang tubuh berubah > 15° dari baseline kalibrasi
     const currentLean = angleFromVertical(shoulder, hip);
-    // Simpan acuan torso di awal latihan/repetisi
-    const targetLean = 45;
-    const diff = Math.abs(currentLean - targetLean);
+    if (rowTrunkBaseline === null && ctx.isCalibrated) {
+      rowTrunkBaseline = currentLean;
+    }
+    const baseline = rowTrunkBaseline ?? 45;
+    const diff = Math.abs(currentLean - baseline);
     const isViolating = diff > 15;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -1185,7 +1333,7 @@ export const ROW_TRUNK_STABLE_CHECK: FormCheck = {
       return {
         ok: false,
         value: Math.round(diff),
-        cue: "Jaga sudut punggung tetap stabil",
+        cue: "Jaga sudut badan tetap",
       };
     }
     return { ok: true, value: Math.round(diff), cue: "" };
@@ -1195,46 +1343,57 @@ export const ROW_TRUNK_STABLE_CHECK: FormCheck = {
 export const ROW_NO_MOMENTUM_CHECK: FormCheck = {
   id: "no-momentum",
   label: "Tarikan Tanpa Momentum Ayunan",
-  severity: "major",
+  severity: "minor",
   when: "continuous",
   evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
     const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    // Mengayun badan tegak mendadak saat fase tarikan (descending/tarik beban, lean < 25°)
+    // Variasi sudut batang tubuh selama fase tarik (descending) > 10°
     const currentLean = angleFromVertical(shoulder, hip);
-    const isViolating = ctx.currentPhase === "descending" && currentLean < 25;
+    let isViolating = false;
+    let variation = 0;
+
+    if (ctx.currentPhase === "descending") {
+      if (currentLean < rowPullMinTrunk) rowPullMinTrunk = currentLean;
+      if (currentLean > rowPullMaxTrunk) rowPullMaxTrunk = currentLean;
+      variation = rowPullMaxTrunk - rowPullMinTrunk;
+      isViolating = variation > 10;
+    } else if (ctx.currentPhase === "idle") {
+      rowPullMinTrunk = 999;
+      rowPullMaxTrunk = -999;
+    }
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
     if (checkConsecutiveViolation("no-momentum", isViolating, 3)) {
       return {
         ok: false,
-        value: Math.round(currentLean),
-        cue: "Tarik beban tanpa mengayun badan",
+        value: Math.round(variation),
+        cue: "Jangan mengayun, tarik dengan terkontrol",
       };
     }
-    return { ok: true, value: Math.round(currentLean), cue: "" };
+    return { ok: true, value: Math.round(variation), cue: "" };
   },
 };
 
 export const ROW_ELBOW_BACK_CHECK: FormCheck = {
   id: "row-elbow-back",
   label: "Siku Melewati Garis Badan",
-  severity: "major",
-  when: "bottom",
-  evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
-    // Di puncak tarikan (sudut siku minimum di bottom)
+  severity: "minor",
+  when: "top",
+  evaluate: (_frame: PoseFrame): CheckResult => {
     // heuristik, toleransi ±10–15°
-    const minElbowAngle = ctx.minMetricValue;
-    if (minElbowAngle > 110) {
+    // Siku tidak melewati garis badan ke belakang pada akhir repetisi
+    if (!rowElbowPassedBack) {
       return {
         ok: false,
-        value: Math.round(minElbowAngle),
-        cue: "Tarik siku melewati garis tubuh",
+        value: 0,
+        cue: "Tarik siku ke belakang badan",
       };
     }
-    return { ok: true, value: Math.round(minElbowAngle), cue: "Tarikan siku cukup dalam" };
+    rowElbowPassedBack = false;
+    return { ok: true, value: 0, cue: "Tarikan siku cukup dalam" };
   },
 };
 
@@ -1243,6 +1402,7 @@ export const ROW_RULESET: RuleSet = {
   exerciseIds: ["bb-bent-row", "db-single-row", "kb-single-row"],
   view: "side",
   requiredLandmarks: [
+    NOSE,
     L_SHOULDER,
     R_SHOULDER,
     L_ELBOW,
@@ -1260,11 +1420,19 @@ export const ROW_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
+      if (joints.hip) {
+        const nose = frame.landmarks[NOSE];
+        const isFacingLeft = nose ? nose.x < joints.hip.x : frame.side === "left";
+        const passed = isFacingLeft
+          ? joints.elbow.x > joints.shoulder.x + 0.02
+          : joints.elbow.x < joints.shoulder.x - 0.02;
+        if (passed) rowElbowPassedBack = true;
+      }
       return angleAt(joints.shoulder, joints.elbow, joints.wrist);
     },
-    upThreshold: 155, // heuristik, toleransi ±10–15°
-    downThreshold: 110, // heuristik, toleransi ±10–15°
-    minRepMs: 600,
+    upThreshold: 150, // heuristik, toleransi ±10–15°
+    downThreshold: 100, // heuristik, toleransi ±10–15°
+    minRepMs: 700,
   },
   checks: [
     ROW_TRUNK_STABLE_CHECK,
@@ -1275,89 +1443,67 @@ export const ROW_RULESET: RuleSet = {
 
 // ============================================================================
 // 12. ATURAN PULL-VERTICAL (bw-pullup)
-// Sudut pandang: SAMPING / DEPAN.
+// Sudut pandang: SAMPING. Catatan: grip-not-wide ditunda (butuh kamera depan).
 // ============================================================================
 
 export const PULL_ROM_CHECK: FormCheck = {
   id: "pull-rom",
   label: "Rentang Gerak Pull-Up",
-  severity: "major",
-  when: "bottom",
-  evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
+  severity: "minor",
+  when: "top",
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    const { shoulder, elbow, wrist } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !elbow || !wrist) return { ok: true, value: 0, cue: "" };
+
     // heuristik, toleransi ±10–15°
-    // Di puncak tarikan (bottom): dagu/bahu melewati pergelangan tangan (sudut siku <= 85°)
-    const minElbow = ctx.minMetricValue;
-    if (minElbow > 85) {
+    // Di bawah, siku < 150 -> cue "Turun penuh"
+    const elbowAngle = angleAt(shoulder, elbow, wrist);
+    if (elbowAngle < 150) {
       return {
         ok: false,
-        value: Math.round(minElbow),
-        cue: "Tarik dagu hingga lewati palang",
+        value: Math.round(elbowAngle),
+        cue: "Turun penuh",
       };
     }
-    return { ok: true, value: Math.round(minElbow), cue: "Rentang tarikan penuh" };
+
+    // Di atas, hidung/dagu tidak di atas pergelangan -> cue dari matriks
+    if (!pullChinPassedBar) {
+      return {
+        ok: false,
+        value: Math.round(ctx.minMetricValue),
+        cue: "Turun penuh, naik sampai dagu di atas palang",
+      };
+    }
+    pullChinPassedBar = false;
+    return { ok: true, value: Math.round(elbowAngle), cue: "Rentang tarikan penuh" };
   },
 };
 
 export const NO_KIP_CHECK: FormCheck = {
   id: "no-kip",
   label: "Pull-Up Bersih Tanpa Kipping",
-  severity: "major",
+  severity: "minor",
   when: "continuous",
-  evaluate: (frame: PoseFrame): CheckResult => {
-    const { shoulder, hip, knee } = getSideJoints(frame.landmarks, frame.side);
-    if (!shoulder || !hip || !knee) return { ok: true, value: 0, cue: "" };
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    // Osilasi horizontal lutut atau pinggul > 0.12 dari garis vertikal bahu
-    const swingOffset = Math.max(Math.abs(knee.x - shoulder.x), Math.abs(hip.x - shoulder.x));
-    const isViolating = swingOffset > 0.12;
+    // Osilasi horizontal pinggul > 8% panjang badan
+    const bodyHeight = Math.max(0.1, ctx.bodyHeight);
+    const hipOffset = Math.abs(hip.x - shoulder.x);
+    const swingRatio = hipOffset / bodyHeight;
+    const isViolating = swingRatio > 0.08;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
     if (checkConsecutiveViolation("no-kip", isViolating, 3)) {
       return {
         ok: false,
-        value: Math.round(swingOffset * 100),
-        cue: "Lakukan pull-up tanpa mengayun badan",
+        value: Math.round(swingRatio * 100),
+        cue: "Kurangi ayunan kaki dan pinggul",
       };
     }
-    return { ok: true, value: Math.round(swingOffset * 100), cue: "" };
-  },
-};
-
-export const GRIP_NOT_WIDE_CHECK: FormCheck = {
-  id: "grip-not-wide",
-  label: "Lebar Cengkeraman Palang",
-  severity: "minor",
-  when: "top",
-  evaluate: (frame: PoseFrame): CheckResult => {
-    const lWrist = frame.landmarks[L_WRIST];
-    const rWrist = frame.landmarks[R_WRIST];
-    const lShoulder = frame.landmarks[L_SHOULDER];
-    const rShoulder = frame.landmarks[R_SHOULDER];
-
-    // grip-not-wide hanya dievaluasi bila mode kamera depan; abaikan bila tidak ada
-    if (
-      !lWrist || !rWrist || !lShoulder || !rShoulder ||
-      (lWrist.visibility ?? 0) < 0.5 ||
-      (rWrist.visibility ?? 0) < 0.5 ||
-      (lShoulder.visibility ?? 0) < 0.5 ||
-      (rShoulder.visibility ?? 0) < 0.5
-    ) {
-      return { ok: true, value: 0, cue: "" };
-    }
-
-    // heuristik, toleransi ±10–15°
-    const wristDist = Math.abs(lWrist.x - rWrist.x);
-    const shoulderDist = Math.max(0.1, Math.abs(lShoulder.x - rShoulder.x));
-    const ratio = wristDist / shoulderDist;
-    if (ratio > 1.8) {
-      return {
-        ok: false,
-        value: Math.round(ratio * 10),
-        cue: "Gunakan cengkeraman selebar bahu",
-      };
-    }
-    return { ok: true, value: Math.round(ratio * 10), cue: "" };
+    return { ok: true, value: Math.round(swingRatio * 100), cue: "" };
   },
 };
 
@@ -1384,16 +1530,19 @@ export const PULL_VERTICAL_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
+      const nose = frame.landmarks[NOSE];
+      if (nose && joints.wrist && nose.y <= joints.wrist.y + 0.03) {
+        pullChinPassedBar = true;
+      }
       return angleAt(joints.shoulder, joints.elbow, joints.wrist);
     },
-    upThreshold: 155, // heuristik, toleransi ±10–15°
+    upThreshold: 150, // heuristik, toleransi ±10–15°
     downThreshold: 90, // heuristik, toleransi ±10–15°
-    minRepMs: 600,
+    minRepMs: 1200,
   },
   checks: [
     PULL_ROM_CHECK,
     NO_KIP_CHECK,
-    GRIP_NOT_WIDE_CHECK,
   ],
 };
 
@@ -1445,26 +1594,23 @@ export const NARROW_HANDS_CHECK: FormCheck = {
 export const PIKE_HIP_HIGH_CHECK: FormCheck = {
   id: "pike-hip-high",
   label: "Posisi Pinggul Tinggi Pike",
-  severity: "major",
+  severity: "minor",
   when: "continuous",
-  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
-    // Hanya berlaku untuk bw-pike-pushup
-    if (ctx.exerciseId !== "bw-pike-pushup") return { ok: true, value: 0, cue: "" };
-
-    const { shoulder, hip, ankle } = getSideJoints(frame.landmarks, frame.side);
-    if (!shoulder || !hip || !ankle) return { ok: true, value: 180, cue: "" };
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const { shoulder, hip, knee } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !hip || !knee) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    // Tubuh harus membentuk inverted V (sudut pinggul bahu-pinggul-pergelangan kaki < 110°)
-    const hipAngle = angleAt(shoulder, hip, ankle);
-    const isViolating = hipAngle > 110;
+    // sudut bahu–pinggul–lutut > 120 → cue dari matriks
+    const hipAngle = angleAt(shoulder, hip, knee);
+    const isViolating = hipAngle > 120;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
     if (checkConsecutiveViolation("pike-hip-high", isViolating, 3)) {
       return {
         ok: false,
         value: Math.round(hipAngle),
-        cue: "Dorong pinggul tinggi membentuk huruf V",
+        cue: "Pertahankan pinggul tinggi",
       };
     }
     return { ok: true, value: Math.round(hipAngle), cue: "" };
@@ -1474,25 +1620,26 @@ export const PIKE_HIP_HIGH_CHECK: FormCheck = {
 export const PUSHUP_VARIANT_DEPTH_CHECK: FormCheck = {
   id: "push-depth",
   label: "Kedalaman Tekukan Siku",
-  severity: "major",
+  severity: "minor",
   when: "bottom",
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
     // heuristik, toleransi ±10–15°
+    // push-depth (bottom): siku minimum > 100
     const minElbow = ctx.minMetricValue;
     if (minElbow > 100) {
       return {
         ok: false,
         value: Math.round(minElbow),
-        cue: "Turun lebih dalam, tekuk siku",
+        cue: "Turun lebih dalam, siku sekitar 90 derajat",
       };
     }
     return { ok: true, value: Math.round(minElbow), cue: "Kedalaman siku baik" };
   },
 };
 
-export const PUSHUP_VARIANT_RULESET: RuleSet = {
-  id: "pushup-variant",
-  exerciseIds: ["bw-diamond-pushup", "bw-pike-pushup"],
+export const PIKE_PUSHUP_RULESET: RuleSet = {
+  id: "pike-pushup",
+  exerciseIds: ["bw-pike-pushup"],
   view: "side",
   requiredLandmarks: [
     L_SHOULDER,
@@ -1503,6 +1650,8 @@ export const PUSHUP_VARIANT_RULESET: RuleSet = {
     R_WRIST,
     L_HIP,
     R_HIP,
+    L_KNEE,
+    R_KNEE,
     L_ANKLE,
     R_ANKLE,
   ],
@@ -1514,16 +1663,18 @@ export const PUSHUP_VARIANT_RULESET: RuleSet = {
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
       return angleAt(joints.shoulder, joints.elbow, joints.wrist);
     },
-    upThreshold: 160, // heuristik, toleransi ±10–15°
-    downThreshold: 100, // heuristik, toleransi ±10–15°
-    minRepMs: 500,
+    upThreshold: 155, // heuristik, toleransi ±10–15°
+    downThreshold: 120, // heuristik, toleransi ±10–15° (margin >= 15° di atas ambang cek 100)
+    minRepMs: 800,
   },
   checks: [
-    NARROW_HANDS_CHECK,
     PIKE_HIP_HIGH_CHECK,
     PUSHUP_VARIANT_DEPTH_CHECK,
+    PRESS_LOCKOUT_CHECK,
   ],
 };
+
+export const PUSHUP_VARIANT_RULESET = PIKE_PUSHUP_RULESET;
 
 // ============================================================================
 // 14. ATURAN DIP (bw-dips)
@@ -1533,17 +1684,17 @@ export const PUSHUP_VARIANT_RULESET: RuleSet = {
 export const DIP_DEPTH_CHECK: FormCheck = {
   id: "dip-depth",
   label: "Batas Kedalaman Dips",
-  severity: "minor", // peringatan, bukan vonis
+  severity: "major",
   when: "bottom",
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
     // heuristik, toleransi ±10–15°
-    // Jika sudut siku terlalu dalam (< 70°), berikan peringatan aman
+    // Jika sudut siku terlalu dalam (< 70°), berikan peringatan
     const minElbow = ctx.minMetricValue;
     if (minElbow < 70) {
       return {
         ok: false,
         value: Math.round(minElbow),
-        cue: "Kedalaman cukup, jangan terlalu rendah",
+        cue: "Jangan turun terlalu dalam",
       };
     }
     return { ok: true, value: Math.round(minElbow), cue: "Kedalaman siku aman" };
@@ -1553,27 +1704,31 @@ export const DIP_DEPTH_CHECK: FormCheck = {
 export const NO_SHRUG_CHECK: FormCheck = {
   id: "no-shrug",
   label: "Depresi Bahu Tanpa Shrug",
-  severity: "major",
+  severity: "minor",
   when: "continuous",
-  evaluate: (frame: PoseFrame): CheckResult => {
-    const nose = frame.landmarks[NOSE];
-    const { shoulder } = getSideJoints(frame.landmarks, frame.side);
-    if (!nose || !shoulder || (nose.visibility ?? 0) < 0.5) return { ok: true, value: 0, cue: "" };
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    const { shoulder, ear } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !ear || (ear.visibility ?? 0) < 0.5) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    // Bahu terdorong ke atas mendekati telinga/hidung (jarak vertikal < 0.08)
-    const dist = shoulder.y - nose.y;
-    const isShrugging = dist < 0.08;
+    // jarak telinga–bahu menyempit > 15% dari baseline
+    const currentDist = Math.hypot(shoulder.x - ear.x, shoulder.y - ear.y);
+    if (dipEarShoulderBaseline === null && (ctx.isCalibrated || currentDist > 0)) {
+      dipEarShoulderBaseline = currentDist;
+    }
+    const baseline = dipEarShoulderBaseline ?? currentDist;
+    const shrink = baseline > 0 ? (baseline - currentDist) / baseline : 0;
+    const isShrugging = shrink > 0.15;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
     if (checkConsecutiveViolation("no-shrug", isShrugging, 3)) {
       return {
         ok: false,
-        value: Math.round(dist * 100),
-        cue: "Jauhkan bahu dari telinga",
+        value: Math.round(shrink * 100),
+        cue: "Turunkan bahu, jauh dari telinga",
       };
     }
-    return { ok: true, value: Math.round(dist * 100), cue: "" };
+    return { ok: true, value: Math.round(shrink * 100), cue: "" };
   },
 };
 
@@ -1582,7 +1737,8 @@ export const DIP_RULESET: RuleSet = {
   exerciseIds: ["bw-dips"],
   view: "side",
   requiredLandmarks: [
-    NOSE,
+    L_EAR,
+    R_EAR,
     L_SHOULDER,
     R_SHOULDER,
     L_ELBOW,
@@ -1601,8 +1757,8 @@ export const DIP_RULESET: RuleSet = {
       return angleAt(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 155, // heuristik, toleransi ±10–15°
-    downThreshold: 105, // heuristik, toleransi ±10–15°
-    minRepMs: 600,
+    downThreshold: 100, // heuristik, toleransi ±10–15°
+    minRepMs: 800,
   },
   checks: [
     DIP_DEPTH_CHECK,
@@ -1699,24 +1855,28 @@ export const BUTT_LIFT_CHECK: FormCheck = {
   severity: "minor",
   when: "continuous",
   evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
-    if (!ctx.isCalibrated) return { ok: true, value: 0, cue: "" };
     const { hip } = getSideJoints(frame.landmarks, frame.side);
     if (!hip) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    // Pantat tidak terangkat dari bench/lantai
-    const lift = (ctx.heelYBaseline - hip.y) / Math.max(0.1, ctx.bodyHeight);
-    const isViolating = ctx.currentPhase === "ascending" && lift > 0.08;
+    // pinggul naik > 5% panjang badan dari baseline
+    if (benchHipBaseline === null && (ctx.isCalibrated || hip.y > 0)) {
+      benchHipBaseline = hip.y;
+    }
+    const baseline = benchHipBaseline ?? hip.y;
+    const bodyHeight = Math.max(0.1, ctx.bodyHeight);
+    const lift = (baseline - hip.y) / bodyHeight;
+    const isViolating = lift > 0.05;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
     if (checkConsecutiveViolation("butt-lift", isViolating, 3)) {
       return {
         ok: false,
         value: Math.round(lift * 100),
-        cue: "Jaga pantat tetap menempel bangku",
+        cue: "Pantat tetap menempel bench",
       };
     }
-    return { ok: true, value: 0, cue: "" };
+    return { ok: true, value: Math.round(lift * 100), cue: "" };
   },
 };
 
@@ -1724,13 +1884,14 @@ export const PRESS_HORIZONTAL_RULESET: RuleSet = {
   id: "press-horizontal",
   exerciseIds: [
     "bb-bench-press",
-    "db-bench-press",
     "bb-incline-press",
+    "db-bench-press",
     "db-incline-press",
     "db-floor-press",
   ],
   view: "side",
   tier: "C",
+  scored: false,
   banner: "Akurasi terbatas untuk gerakan ini",
   requiredLandmarks: [
     L_SHOULDER,
@@ -1752,13 +1913,654 @@ export const PRESS_HORIZONTAL_RULESET: RuleSet = {
     },
     upThreshold: 155, // heuristik, toleransi ±10–15°
     downThreshold: 100, // heuristik, toleransi ±10–15°
+    minRepMs: 800,
+  },
+  checks: [
+    PRESS_LOCKOUT_CHECK,
+    BUTT_LIFT_CHECK,
+  ],
+};
+
+// 16. ATURAN BICEP & HAMMER CURL (db-bicep-curl, bb-barbell-curl, db-hammer-curl)
+// Sudut pandang: SAMPING. Catatan: Orientasi genggaman TIDAK dinilai.
+// ============================================================================
+
+export const CURL_ELBOW_FIXED_CHECK: FormCheck = {
+  id: "elbow-fixed",
+  label: "Posisi Siku Diam di Tempat",
+  severity: "major",
+  when: "continuous",
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    const { shoulder, elbow } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !elbow) return { ok: true, value: 0, cue: "" };
+
+    // heuristik, toleransi ±10–15°
+    // Siku bergeser > 12% panjang lengan atas dari garis vertikal bahu
+    const upperArmLength = Math.max(0.1, Math.hypot(shoulder.x - elbow.x, shoulder.y - elbow.y));
+    const horizontalShift = Math.abs(elbow.x - shoulder.x);
+    const ratio = horizontalShift / upperArmLength;
+    const isViolating = ctx.currentPhase !== "idle" && ratio > 0.12;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("elbow-fixed", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(ratio * 100),
+        cue: "Jaga siku tetap di samping badan",
+      };
+    }
+    return { ok: true, value: Math.round(ratio * 100), cue: "" };
+  },
+};
+
+export const CURL_NO_BODY_SWING_CHECK: FormCheck = {
+  id: "no-body-swing",
+  label: "Batang Tubuh Tanpa Ayunan",
+  severity: "major",
+  when: "continuous",
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
+
+    // heuristik, toleransi ±10–15°
+    // Bahu bergeser horizontal / ayunan badan saat mengangkat (lean angle > 15°)
+    const trunkLean = angleFromVertical(shoulder, hip);
+    const isViolating = ctx.currentPhase !== "idle" && trunkLean > 15;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("no-body-swing", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(trunkLean),
+        cue: "Jangan mengayunkan badan saat mengangkat",
+      };
+    }
+    return { ok: true, value: Math.round(trunkLean), cue: "" };
+  },
+};
+
+export const CURL_RULESET: RuleSet = {
+  id: "curl",
+  exerciseIds: ["db-bicep-curl", "bb-barbell-curl", "db-hammer-curl"],
+  view: "side",
+  requiredLandmarks: [
+    L_SHOULDER,
+    R_SHOULDER,
+    L_ELBOW,
+    R_ELBOW,
+    L_WRIST,
+    R_WRIST,
+    L_HIP,
+    R_HIP,
+  ],
+  mode: "reps",
+  counter: {
+    // Metrik: sudut siku (bahu-siku-pergelangan)
+    metric: (frame: PoseFrame): number => {
+      const joints = getSideJoints(frame.landmarks, frame.side);
+      if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
+      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+    },
+    upThreshold: 150, // heuristik, toleransi ±10–15°
+    downThreshold: 95, // heuristik, toleransi ±10–15°
     minRepMs: 600,
   },
   checks: [
-    PRESS_SYMMETRY_CHECK,
-    PRESS_GRIP_WIDTH_CHECK,
-    BUTT_LIFT_CHECK,
+    CURL_ELBOW_FIXED_CHECK,
+    CURL_NO_BODY_SWING_CHECK,
   ],
+};
+
+// ============================================================================
+// 17. ATURAN RAISE (db-lateral-raise, plate-steering-raise, db-rear-delt-fly)
+// Sudut pandang: DEPAN / SAMPING.
+// ============================================================================
+
+export const RAISE_HEIGHT_CHECK: FormCheck = {
+  id: "raise-height",
+  label: "Ketinggian Angkatan Lengan",
+  severity: "minor",
+  when: "continuous",
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const lWrist = frame.landmarks[L_WRIST];
+    const rWrist = frame.landmarks[R_WRIST];
+    const lShoulder = frame.landmarks[L_SHOULDER];
+    const rShoulder = frame.landmarks[R_SHOULDER];
+
+    if (!lWrist || !rWrist || !lShoulder || !rShoulder) {
+      return { ok: true, value: 0, cue: "" };
+    }
+
+    // heuristik, toleransi ±10–15°
+    // Pergelangan tangan tidak melewati bahu (koordinat Y layar: y makin kecil = makin tinggi)
+    const isViolating = lWrist.y < lShoulder.y - 0.05 || rWrist.y < rShoulder.y - 0.05;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("raise-height", isViolating, 3)) {
+      return {
+        ok: false,
+        value: 1,
+        cue: "Angkat beban tidak melebihi bahu",
+      };
+    }
+    return { ok: true, value: 0, cue: "" };
+  },
+};
+
+export const RAISE_SYMMETRY_CHECK: FormCheck = {
+  id: "raise-symmetry",
+  label: "Simetri Angkatan Lengan Kiri Kanan",
+  severity: "minor",
+  when: "continuous",
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const lWrist = frame.landmarks[L_WRIST];
+    const rWrist = frame.landmarks[R_WRIST];
+
+    if (
+      !lWrist || !rWrist ||
+      (lWrist.visibility ?? 0) < 0.5 ||
+      (rWrist.visibility ?? 0) < 0.5
+    ) {
+      return { ok: true, value: 0, cue: "" };
+    }
+
+    // heuristik, toleransi ±10–15°
+    // Perbedaan elevasi pergelangan tangan kiri dan kanan > 0.08
+    const diff = Math.abs(lWrist.y - rWrist.y);
+    const isViolating = diff > 0.08;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("raise-symmetry", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(diff * 100),
+        cue: "Angkat kedua lengan secara seimbang",
+      };
+    }
+    return { ok: true, value: Math.round(diff * 100), cue: "" };
+  },
+};
+
+export const RAISE_RULESET: RuleSet = {
+  id: "raise",
+  exerciseIds: ["db-lateral-raise", "plate-steering-raise", "db-rear-delt-fly"],
+  view: "any",
+  requiredLandmarks: [
+    L_SHOULDER,
+    R_SHOULDER,
+    L_ELBOW,
+    R_ELBOW,
+    L_WRIST,
+    R_WRIST,
+    L_HIP,
+    R_HIP,
+  ],
+  mode: "reps",
+  counter: {
+    // Metrik: 180 - sudut elevasi lengan dari panggul (pinggul-bahu-pergelangan)
+    // Tangan di bawah: sudut ~20° -> metrik ~160°
+    // Tangan di atas setinggi bahu: sudut ~85° -> metrik ~95°
+    metric: (frame: PoseFrame): number => {
+      const joints = getSideJoints(frame.landmarks, frame.side);
+      if (!joints.hip || !joints.shoulder || !joints.wrist) return 180;
+      const angle = angleAt(joints.hip, joints.shoulder, joints.wrist);
+      return Math.max(0, 180 - angle);
+    },
+    upThreshold: 150, // heuristik, toleransi ±10–15°
+    downThreshold: 115, // heuristik, toleransi ±10–15°
+    minRepMs: 600,
+  },
+  checks: [
+    RAISE_HEIGHT_CHECK,
+    RAISE_SYMMETRY_CHECK,
+  ],
+};
+
+// ============================================================================
+// 18. ATURAN TRICEPS EXTENSION (bb-skull-crusher) — TIER C
+// Sudut pandang: SAMPING. Banner: "Tidak ada rujukan jurnal terverifikasi"
+// ============================================================================
+
+export const TRICEPS_UPPER_ARM_FIXED_CHECK: FormCheck = {
+  id: "upper-arm-fixed",
+  label: "Stabilitas Lengan Atas",
+  severity: "minor",
+  when: "continuous",
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    const { shoulder, elbow } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !elbow) return { ok: true, value: 0, cue: "" };
+
+    // heuristik, toleransi ±10–15°
+    // Lengan atas tidak boleh berayun maju-mundur > 25° dari vertikal
+    const armLean = angleFromVertical(shoulder, elbow);
+    const isViolating = ctx.currentPhase !== "idle" && armLean > 25;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("upper-arm-fixed", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(armLean),
+        cue: "Jaga posisi lengan atas stabil",
+      };
+    }
+    return { ok: true, value: Math.round(armLean), cue: "" };
+  },
+};
+
+export const TRICEPS_PRESS_LOCKOUT_CHECK: FormCheck = {
+  id: "press-lockout",
+  label: "Kunci Ekstensi Siku di Puncak",
+  severity: "minor",
+  when: "top",
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const { shoulder, elbow, wrist } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !elbow || !wrist) return { ok: true, value: 180, cue: "" };
+
+    // heuristik, toleransi ±10–15°
+    const elbowAngle = angleAt(shoulder, elbow, wrist);
+    if (elbowAngle < 155) {
+      return {
+        ok: false,
+        value: Math.round(elbowAngle),
+        cue: "Kunci siku lurus di atas",
+      };
+    }
+    return { ok: true, value: Math.round(elbowAngle), cue: "Ekstensi siku optimal" };
+  },
+};
+
+export const TRICEPS_EXT_RULESET: RuleSet = {
+  id: "triceps-ext",
+  exerciseIds: ["bb-skull-crusher"],
+  view: "side",
+  tier: "C",
+  banner: "Tidak ada rujukan jurnal terverifikasi",
+  requiredLandmarks: [
+    L_SHOULDER,
+    R_SHOULDER,
+    L_ELBOW,
+    R_ELBOW,
+    L_WRIST,
+    R_WRIST,
+  ],
+  mode: "reps",
+  counter: {
+    // Metrik: sudut siku (bahu-siku-pergelangan)
+    metric: (frame: PoseFrame): number => {
+      const joints = getSideJoints(frame.landmarks, frame.side);
+      if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
+      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+    },
+    upThreshold: 150, // heuristik, toleransi ±10–15° (memungkinkan rep selesai saat lockout < 155)
+    downThreshold: 95, // heuristik, toleransi ±10–15°
+    minRepMs: 600,
+  },
+  checks: [
+    TRICEPS_UPPER_ARM_FIXED_CHECK,
+    TRICEPS_PRESS_LOCKOUT_CHECK,
+  ],
+};
+
+// ============================================================================
+// 19. ATURAN PRONE EXTENSION (bw-sky-divers)
+// Sudut pandang: SAMPING. Mode: HOLD.
+// ============================================================================
+
+export const PRONE_NECK_NEUTRAL_CHECK: FormCheck = {
+  id: "neck-neutral",
+  label: "Leher Netral Sejajar Punggung",
+  severity: "minor",
+  when: "continuous",
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const nose = frame.landmarks[NOSE];
+    const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
+    if (!nose || !shoulder || !hip) return { ok: true, value: 180, cue: "" };
+
+    // heuristik, toleransi ±10–15°
+    // Leher hiperekstensi (mendongak berlebihan ke atas) saat sudut hidung-bahu-pinggul < 135°
+    const angle = angleAt(nose, shoulder, hip);
+    const isViolating = angle < 135;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("neck-neutral", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(angle),
+        cue: "Jaga leher sejajar tulang punggung",
+      };
+    }
+    return { ok: true, value: Math.round(angle), cue: "" };
+  },
+};
+
+export const PRONE_SYMMETRIC_LIFT_CHECK: FormCheck = {
+  id: "symmetric-lift",
+  label: "Keseimbangan Angkatan Dada dan Kaki",
+  severity: "minor",
+  when: "continuous",
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const lShoulder = frame.landmarks[L_SHOULDER];
+    const rShoulder = frame.landmarks[R_SHOULDER];
+    const lAnkle = frame.landmarks[L_ANKLE];
+    const rAnkle = frame.landmarks[R_ANKLE];
+
+    if (!lShoulder || !rShoulder || !lAnkle || !rAnkle) {
+      return { ok: true, value: 0, cue: "" };
+    }
+
+    // heuristik, toleransi ±10–15°
+    const shoulderDiff = Math.abs(lShoulder.y - rShoulder.y);
+    const ankleDiff = Math.abs(lAnkle.y - rAnkle.y);
+    const isViolating = shoulderDiff > 0.08 || ankleDiff > 0.08;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("symmetric-lift", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(Math.max(shoulderDiff, ankleDiff) * 100),
+        cue: "Angkat dada dan kaki seimbang",
+      };
+    }
+    return { ok: true, value: 0, cue: "" };
+  },
+};
+
+export const PRONE_EXTENSION_RULESET: RuleSet = {
+  id: "prone-extension",
+  exerciseIds: ["bw-sky-divers"],
+  view: "side",
+  requiredLandmarks: [
+    NOSE,
+    L_SHOULDER,
+    R_SHOULDER,
+    L_HIP,
+    R_HIP,
+    L_KNEE,
+    R_KNEE,
+    L_ANKLE,
+    R_ANKLE,
+  ],
+  mode: "hold",
+  counter: {
+    metric: (): number => 180,
+    upThreshold: 180,
+    downThreshold: 0,
+    minRepMs: 1000,
+  },
+  checks: [
+    PRONE_NECK_NEUTRAL_CHECK,
+    PRONE_SYMMETRIC_LIFT_CHECK,
+  ],
+};
+
+// ============================================================================
+// 20. ATURAN ROTATION (plate-russian-twist)
+// Sudut pandang: DEPAN. Catatan: Hanya hitung rotasi bahu terhadap pinggul.
+// ============================================================================
+
+export const ROTATION_RULESET: RuleSet = {
+  id: "rotation",
+  exerciseIds: ["plate-russian-twist"],
+  view: "front",
+  tier: "C",
+  scored: false,
+  banner: "Akurasi terbatas untuk gerakan ini",
+  requiredLandmarks: [
+    L_SHOULDER,
+    R_SHOULDER,
+    L_HIP,
+    R_HIP,
+    L_WRIST,
+    R_WRIST,
+  ],
+  mode: "reps",
+  counter: {
+    // Metrik: 180 - rotasi bahu terhadap garis horizontal
+    // Di tengah: sudut ~0° -> metrik ~180°
+    // Saat rotasi ke samping: kemiringan sudut bertambah -> metrik turun di bawah 145°
+    metric: (frame: PoseFrame): number => {
+      const lShoulder = frame.landmarks[L_SHOULDER];
+      const rShoulder = frame.landmarks[R_SHOULDER];
+      if (!lShoulder || !rShoulder) return 180;
+      const angleRad = Math.atan2(
+        Math.abs(rShoulder.y - lShoulder.y),
+        Math.max(0.01, Math.abs(rShoulder.x - lShoulder.x))
+      );
+      const angleDeg = (angleRad * 180) / Math.PI;
+      return Math.max(0, 180 - angleDeg * 1.5);
+    },
+    upThreshold: 165, // heuristik, toleransi ±10–15°
+    downThreshold: 145, // heuristik, toleransi ±10–15°
+    minRepMs: 500,
+  },
+  checks: [],
+};
+
+// ============================================================================
+// 21. ATURAN CARRY (plate-pinch-carry)
+// Sudut pandang: SAMPING. Mode: HOLD (waktu tegak saja).
+// ============================================================================
+
+export const CARRY_TRUNK_ERECT_CHECK: FormCheck = {
+  id: "trunk-erect",
+  label: "Postur Tubuh Tegak Lurus",
+  severity: "minor",
+  when: "continuous",
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
+
+    // heuristik, toleransi ±10–15°
+    // Tubuh condong ke depan atau ke belakang > 15° dari sumbu vertikal
+    const lean = angleFromVertical(shoulder, hip);
+    const isViolating = lean > 15;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("trunk-erect", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(lean),
+        cue: "Jaga tubuh tegak saat melangkah",
+      };
+    }
+    return { ok: true, value: Math.round(lean), cue: "" };
+  },
+};
+
+export const CARRY_RULESET: RuleSet = {
+  id: "carry",
+  exerciseIds: ["plate-pinch-carry"],
+  view: "side",
+  requiredLandmarks: [
+    L_SHOULDER,
+    R_SHOULDER,
+    L_HIP,
+    R_HIP,
+    L_ANKLE,
+    R_ANKLE,
+  ],
+  mode: "hold",
+  counter: {
+    metric: (): number => 180,
+    upThreshold: 180,
+    downThreshold: 0,
+    minRepMs: 1000,
+  },
+  checks: [
+    CARRY_TRUNK_ERECT_CHECK,
+  ],
+};
+
+// ============================================================================
+// 22. ATURAN KETTLEBELL LAIN (kb-clean-press, kb-halo)
+// kb-clean-press fase press saja, kb-halo: head-still.
+// ============================================================================
+
+export const KB_HEAD_STILL_CHECK: FormCheck = {
+  id: "head-still",
+  label: "Kepala Tidak Ikut Bergoyang",
+  severity: "minor",
+  when: "continuous",
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const nose = frame.landmarks[NOSE];
+    const lShoulder = frame.landmarks[L_SHOULDER];
+    const rShoulder = frame.landmarks[R_SHOULDER];
+    if (!nose || !lShoulder || !rShoulder) return { ok: true, value: 0, cue: "" };
+
+    // heuristik, toleransi ±10–15°
+    // Deviasi horizontal hidung terhadap titik tengah bahu > 0.08
+    const midShoulderX = (lShoulder.x + rShoulder.x) / 2;
+    const headOffset = Math.abs(nose.x - midShoulderX);
+    const isViolating = headOffset > 0.08;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("head-still", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(headOffset * 100),
+        cue: "Jaga kepala tetap tegak diam",
+      };
+    }
+    return { ok: true, value: Math.round(headOffset * 100), cue: "" };
+  },
+};
+
+export const KETTLEBELL_OTHER_RULESET: RuleSet = {
+  id: "kettlebell-other",
+  exerciseIds: ["kb-clean-press", "kb-halo"],
+  view: "any",
+  requiredLandmarks: [
+    NOSE,
+    L_SHOULDER,
+    R_SHOULDER,
+    L_ELBOW,
+    R_ELBOW,
+    L_WRIST,
+    R_WRIST,
+  ],
+  mode: "reps",
+  counter: {
+    // Metrik fase press: sudut siku
+    metric: (frame: PoseFrame): number => {
+      const joints = getSideJoints(frame.landmarks, frame.side);
+      if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
+      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+    },
+    upThreshold: 155, // heuristik, toleransi ±10–15°
+    downThreshold: 105, // heuristik, toleransi ±10–15°
+    minRepMs: 600,
+  },
+  checks: [
+    KB_HEAD_STILL_CHECK,
+  ],
+};
+
+// ============================================================================
+// 23. ATURAN SQUAT OVERHEAD (plate-overhead-squat)
+// Cek squat + overhead-arms.
+// ============================================================================
+
+export const OVERHEAD_ARMS_CHECK: FormCheck = {
+  id: "overhead-arms",
+  label: "Lengan Tetap di Atas Kepala",
+  severity: "major",
+  when: "continuous",
+  evaluate: (frame: PoseFrame): CheckResult => {
+    const { shoulder, wrist } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !wrist) return { ok: true, value: 0, cue: "" };
+
+    // heuristik, toleransi ±10–15°
+    // Lengan tidak boleh condong jatuh ke depan (sudut dari vertikal > 30° atau pergelangan di bawah bahu)
+    const armLean = angleFromVertical(wrist, shoulder);
+    const isDropped = wrist.y >= shoulder.y;
+    const isViolating = armLean > 30 || isDropped;
+
+    // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
+    if (checkConsecutiveViolation("overhead-arms", isViolating, 3)) {
+      return {
+        ok: false,
+        value: Math.round(armLean),
+        cue: "Jaga lengan tetap di atas kepala",
+      };
+    }
+    return { ok: true, value: Math.round(armLean), cue: "" };
+  },
+};
+
+export const SQUAT_OVERHEAD_RULESET: RuleSet = {
+  id: "squat-overhead",
+  exerciseIds: ["plate-overhead-squat"],
+  view: "side",
+  requiredLandmarks: [
+    L_SHOULDER,
+    R_SHOULDER,
+    L_ELBOW,
+    R_ELBOW,
+    L_WRIST,
+    R_WRIST,
+    L_HIP,
+    R_HIP,
+    L_KNEE,
+    R_KNEE,
+    L_ANKLE,
+    R_ANKLE,
+    L_HEEL,
+    R_HEEL,
+  ],
+  mode: "reps",
+  counter: {
+    metric: (frame: PoseFrame): number => {
+      const joints = getSideJoints(frame.landmarks, frame.side);
+      if (!joints.hip || !joints.knee || !joints.ankle) return 180;
+      return angleAt(joints.hip, joints.knee, joints.ankle);
+    },
+    upThreshold: 160, // heuristik, toleransi ±10–15°
+    downThreshold: 150, // heuristik, toleransi ±10–15°
+    minRepMs: 500,
+  },
+  checks: [
+    SQUAT_DEPTH_CHECK,
+    SQUAT_TRUNK_LEAN_CHECK,
+    SQUAT_HEEL_LIFT_CHECK,
+    OVERHEAD_ARMS_CHECK,
+  ],
+};
+
+// ============================================================================
+// 24. ATURAN GROUND TO OVERHEAD (plate-g2oh) — TIER C
+// Hanya hitung repetisi (Tier C).
+// ============================================================================
+
+export const GROUND_TO_OVERHEAD_RULESET: RuleSet = {
+  id: "ground-to-overhead",
+  exerciseIds: ["plate-g2oh"],
+  view: "side",
+  tier: "C",
+  scored: false,
+  banner: "Akurasi terbatas untuk gerakan ini",
+  requiredLandmarks: [
+    L_SHOULDER,
+    R_SHOULDER,
+    L_HIP,
+    R_HIP,
+    L_KNEE,
+    R_KNEE,
+    L_ANKLE,
+    R_ANKLE,
+  ],
+  mode: "reps",
+  counter: {
+    // Metrik: pergerakan squat / angkatan lutut
+    metric: (frame: PoseFrame): number => {
+      const joints = getSideJoints(frame.landmarks, frame.side);
+      if (!joints.hip || !joints.knee || !joints.ankle) return 180;
+      return angleAt(joints.hip, joints.knee, joints.ankle);
+    },
+    upThreshold: 160, // heuristik, toleransi ±10–15°
+    downThreshold: 145, // heuristik, toleransi ±10–15°
+    minRepMs: 600,
+  },
+  checks: [],
 };
 
 /**
@@ -1777,9 +2579,18 @@ export const ALL_RULESETS: RuleSet[] = [
   PRESS_VERTICAL_RULESET,
   ROW_RULESET,
   PULL_VERTICAL_RULESET,
-  PUSHUP_VARIANT_RULESET,
+  PIKE_PUSHUP_RULESET,
   DIP_RULESET,
   PRESS_HORIZONTAL_RULESET,
+  CURL_RULESET,
+  RAISE_RULESET,
+  TRICEPS_EXT_RULESET,
+  PRONE_EXTENSION_RULESET,
+  ROTATION_RULESET,
+  CARRY_RULESET,
+  KETTLEBELL_OTHER_RULESET,
+  SQUAT_OVERHEAD_RULESET,
+  GROUND_TO_OVERHEAD_RULESET,
 ];
 
 /**

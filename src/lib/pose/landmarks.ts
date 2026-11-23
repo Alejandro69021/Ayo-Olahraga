@@ -6,6 +6,8 @@ export type Landmark = {
 };
 
 export const NOSE = 0;
+export const L_EAR = 7;
+export const R_EAR = 8;
 export const L_SHOULDER = 11;
 export const R_SHOULDER = 12;
 export const L_ELBOW = 13;

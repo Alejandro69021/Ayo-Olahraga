@@ -13,6 +13,7 @@ interface FeedbackPanelProps {
   holdTimeSec?: number;
   cleanHoldSec?: number;
   phase?: "idle" | "descending" | "bottom" | "ascending";
+  scored?: boolean;
 }
 
 interface DisplayCue {
@@ -37,6 +38,7 @@ export default function FeedbackPanel({
   holdTimeSec = 0,
   cleanHoldSec = 0,
   phase = "idle",
+  scored = true,
 }: FeedbackPanelProps) {
   // 1. Suara (speechSynthesis id-ID), default MATI
   const [audioEnabled, setAudioEnabled] = useState(false);
@@ -240,38 +242,40 @@ export default function FeedbackPanel({
           </button>
 
           {/* Score Ring Gauge (SVG) */}
-          <div className="relative flex items-center justify-center">
-            <svg className="w-14 h-14 -rotate-90" viewBox="0 0 64 64">
-              <circle
-                cx="32"
-                cy="32"
-                r={radius}
-                className="stroke-neutral-800"
-                strokeWidth="5"
-                fill="transparent"
-              />
-              <circle
-                cx="32"
-                cy="32"
-                r={radius}
-                stroke={scoreColor}
-                strokeWidth="5"
-                fill="transparent"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                className="transition-all duration-300"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="font-metric text-sm font-black text-white leading-none">
-                {currentScore}
-              </span>
-              <span className="text-[8px] text-neutral-400 uppercase font-semibold leading-none mt-0.5">
-                SKOR
-              </span>
+          {scored !== false && (
+            <div className="relative flex items-center justify-center">
+              <svg className="w-14 h-14 -rotate-90" viewBox="0 0 64 64">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r={radius}
+                  className="stroke-neutral-800"
+                  strokeWidth="5"
+                  fill="transparent"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r={radius}
+                  stroke={scoreColor}
+                  strokeWidth="5"
+                  fill="transparent"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  className="transition-all duration-300"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="font-metric text-sm font-black text-white leading-none">
+                  {currentScore}
+                </span>
+                <span className="text-[8px] text-neutral-400 uppercase font-semibold leading-none mt-0.5">
+                  SKOR
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

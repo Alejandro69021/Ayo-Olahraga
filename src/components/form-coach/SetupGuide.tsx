@@ -6,24 +6,33 @@ import { Smartphone, Eye, Maximize, Sun, ArrowRight } from "lucide-react";
 interface SetupGuideProps {
   exerciseName: string;
   cameraTip?: string;
+  view?: "side" | "front";
   onStart: () => void;
 }
 
 export default function SetupGuide({
   exerciseName,
   cameraTip,
+  view = "side",
   onStart,
 }: SetupGuideProps) {
   const steps = [
     {
       icon: <Smartphone className="w-5 h-5 text-[#DFFF00]" />,
       title: "Posisi Ponsel",
-      desc: cameraTip || "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda dengan stabil.",
+      desc:
+        cameraTip ||
+        (view === "front"
+          ? "Letakkan HP setinggi dada, 2–3 meter di depan Anda dengan stabil."
+          : "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda dengan stabil."),
     },
     {
       icon: <Eye className="w-5 h-5 text-[#DFFF00]" />,
-      title: "Sudut Pandang Samping",
-      desc: "Berdiri atau bersiap dengan sisi kiri/kanan tubuh menghadap langsung ke kamera.",
+      title: view === "front" ? "Sudut Pandang Depan" : "Sudut Pandang Samping",
+      desc:
+        view === "front"
+          ? "Berdiri atau bersiap dengan hadap lurus ke kamera."
+          : "Berdiri atau bersiap dengan sisi kiri/kanan tubuh menghadap langsung ke kamera.",
     },
     {
       icon: <Maximize className="w-5 h-5 text-[#DFFF00]" />,

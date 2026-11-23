@@ -10,6 +10,7 @@ import { RepCounter, CounterUpdate } from "@/lib/pose/rep-counter";
 import {
   SQUAT_RULESET,
   getRuleSetForExercise,
+  setBallisticFps,
 } from "@/lib/pose/rules/config";
 import { PoseFrame } from "@/lib/pose/rules/types";
 import FeedbackPanel from "./FeedbackPanel";
@@ -30,6 +31,8 @@ import { RefreshCw, Upload, AlertCircle, CheckCircle2, Flag, AlertTriangle, Shie
 interface CameraStageProps {
   exerciseId?: string;
   exerciseName?: string;
+  view?: "side" | "front";
+  cameraTip?: string;
   onPoseDetected?: (landmarks: any[], worldLandmarks: any[]) => void;
   onClose?: () => void;
   onComplete?: (summary: FormCoachSummary) => void;
@@ -53,6 +56,8 @@ const FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
 export const CameraStage: React.FC<CameraStageProps> = ({
   exerciseId = "bw-air-squat",
   exerciseName = "Air Squat",
+  view,
+  cameraTip,
   onPoseDetected,
   onClose,
   onComplete,
@@ -80,6 +85,8 @@ export const CameraStage: React.FC<CameraStageProps> = ({
 
   // RuleSet dan RepCounter
   const ruleSet = getRuleSetForExercise(exerciseId) || SQUAT_RULESET;
+  const currentView: "side" | "front" =
+    view || (ruleSet.view === "front" ? "front" : "side");
   const counterRef = useRef<RepCounter>(new RepCounter(ruleSet, exerciseId));
 
   const [counterState, setCounterState] = useState<CounterUpdate>({
@@ -97,7 +104,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   // Re-inisialisasi counter saat exerciseId berubah
   useEffect(() => {
     counterRef.current = new RepCounter(ruleSet, exerciseId);
-    setCounterState({
+    const initialCounter: CounterUpdate = {
       phase: "idle",
       repsCount: 0,
       currentScore: 100,
@@ -107,7 +114,9 @@ export const CameraStage: React.FC<CameraStageProps> = ({
       holdTimeSec: 0,
       cleanHoldSec: 0,
       isCalibrated: false,
-    });
+    };
+    lastCounterStateRef.current = initialCounter;
+    setCounterState(initialCounter);
   }, [exerciseId, ruleSet]);
 
   const {
@@ -121,6 +130,63 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   } = useCamera("user");
 
   const { landmarker, isReady: landmarkerReady, error: landmarkerError } = usePoseLandmarker();
+
+  // Sinkronisasi nilai-nilai dinamis ke useRef agar processFrame stabil dengan dependensi kosong []
+  const landmarkerRef = useRef(landmarker);
+  useEffect(() => {
+    landmarkerRef.current = landmarker;
+  }, [landmarker]);
+
+  const stageRef = useRef(stage);
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
+
+  const onPoseDetectedRef = useRef(onPoseDetected);
+  useEffect(() => {
+    onPoseDetectedRef.current = onPoseDetected;
+  }, [onPoseDetected]);
+
+  const ruleSetRef = useRef(ruleSet);
+  useEffect(() => {
+    ruleSetRef.current = ruleSet;
+  }, [ruleSet]);
+
+  const isFileSourceRef = useRef(isFileSource);
+  useEffect(() => {
+    isFileSourceRef.current = isFileSource;
+  }, [isFileSource]);
+
+  const latestLandmarksRef = useRef<any[] | null>(null);
+  const latestWorldLandmarksRef = useRef<any[] | null>(null);
+
+  const lastFramingRef = useRef<FramingResult>({
+    ok: false,
+    missing: DEFAULT_REQUIRED_JOINTS,
+    message: "Menyiapkan sensor dan kamera...",
+  });
+
+  const lastCounterStateRef = useRef<CounterUpdate>({
+    phase: "idle",
+    repsCount: 0,
+    currentScore: 100,
+    activeCues: [],
+    activeIssues: [],
+    lastCompletedRep: null,
+    holdTimeSec: 0,
+    cleanHoldSec: 0,
+    isCalibrated: false,
+  });
+
+  // SELALU matikan kamera saat komponen ditutup / unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, [stopCamera]);
 
   // Mode uji file lokal HANYA aktif saat non-production
   useEffect(() => {
@@ -191,7 +257,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
     }
   };
 
-  // Loop requestAnimationFrame dengan pembatas 24 FPS & penghentian saat tab tersembunyi
+  // Loop deteksi frame: STABIL dengan dependensi kosong [], data frame disimpan di ref
   const processFrame = useCallback(() => {
     if (typeof document !== "undefined" && document.hidden) {
       return;
@@ -199,11 +265,12 @@ export const CameraStage: React.FC<CameraStageProps> = ({
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    const currentLandmarker = landmarkerRef.current;
 
     if (
       video &&
       canvas &&
-      landmarker &&
+      currentLandmarker &&
       video.readyState >= 2 &&
       !video.paused &&
       !video.ended
@@ -221,7 +288,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
             canvas.height = video.videoHeight || 480;
           }
 
-          const result = landmarker.detectForVideo(video, now);
+          const result = currentLandmarker.detectForVideo(video, now);
 
           const ctx = canvas.getContext("2d");
           if (ctx) {
@@ -231,6 +298,10 @@ export const CameraStage: React.FC<CameraStageProps> = ({
             if (result && result.landmarks && result.landmarks.length > 0) {
               const currentLandmarks = result.landmarks[0];
               const worldLandmarks = result.worldLandmarks?.[0] || [];
+
+              // Simpan data landmark terakhir di ref (tanpa re-render)
+              latestLandmarksRef.current = currentLandmarks;
+              latestWorldLandmarksRef.current = worldLandmarks;
 
               // Gambar kerangka sendi MediaPipe
               const drawingUtils = new DrawingUtils(ctx);
@@ -246,12 +317,20 @@ export const CameraStage: React.FC<CameraStageProps> = ({
               });
 
               // Evaluasi framing posisi tubuh pengguna
-              const requiredJoints = ruleSet.requiredLandmarks || DEFAULT_REQUIRED_JOINTS;
+              const currentRuleSet = ruleSetRef.current;
+              const requiredJoints = currentRuleSet.requiredLandmarks || DEFAULT_REQUIRED_JOINTS;
               const check = checkFraming(currentLandmarks, requiredJoints);
-              setFraming(check);
+
+              // Update framing HANYA saat status ok atau teks pesan berubah
+              const prevFraming = lastFramingRef.current;
+              if (check.ok !== prevFraming.ok || check.message !== prevFraming.message) {
+                lastFramingRef.current = check;
+                setFraming(check);
+              }
 
               // Jalankan RepCounter & Form Evaluator HANYA jika sudah melewati hitung mundur
-              if (stage === "calibrating" || stage === "active") {
+              const currentStage = stageRef.current;
+              if (currentStage === "calibrating" || currentStage === "active") {
                 const side = pickVisibleSide(currentLandmarks);
                 const frame: PoseFrame = {
                   landmarks: currentLandmarks,
@@ -261,50 +340,91 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                 };
 
                 const update = counterRef.current.update(frame);
-                setCounterState(update);
+                const prev = lastCounterStateRef.current;
+
+                // Bandingkan apakah ada nilai UI yang berubah sebelum memanggil setState
+                const cuesChanged =
+                  update.activeCues.length !== prev.activeCues.length ||
+                  update.activeCues.some((c, i) => c !== prev.activeCues[i]);
+
+                const issuesChanged = update.activeIssues.length !== prev.activeIssues.length;
+
+                const hasChanged =
+                  update.repsCount !== prev.repsCount ||
+                  update.phase !== prev.phase ||
+                  update.currentScore !== prev.currentScore ||
+                  update.holdTimeSec !== prev.holdTimeSec ||
+                  update.cleanHoldSec !== prev.cleanHoldSec ||
+                  update.isCalibrated !== prev.isCalibrated ||
+                  update.lastCompletedRep !== prev.lastCompletedRep ||
+                  cuesChanged ||
+                  issuesChanged;
+
+                if (hasChanged) {
+                  lastCounterStateRef.current = update;
+                  setCounterState(update);
+                }
               }
 
-              if (onPoseDetected) {
-                onPoseDetected(currentLandmarks, worldLandmarks);
+              if (onPoseDetectedRef.current) {
+                onPoseDetectedRef.current(currentLandmarks, worldLandmarks);
               }
             } else {
-              setFraming({
+              latestLandmarksRef.current = null;
+              latestWorldLandmarksRef.current = null;
+
+              const noBodyCheck: FramingResult = {
                 ok: false,
                 missing: DEFAULT_REQUIRED_JOINTS,
                 message: "Tubuh tidak terdeteksi — silakan berdiri di depan kamera.",
-              });
+              };
+              const prevFraming = lastFramingRef.current;
+              if (noBodyCheck.ok !== prevFraming.ok || noBodyCheck.message !== prevFraming.message) {
+                lastFramingRef.current = noBodyCheck;
+                setFraming(noBodyCheck);
+              }
             }
             ctx.restore();
           }
 
-          // Perhitungan FPS & deteksi performa rendah (< 12 FPS)
+          // Perhitungan FPS di ref & publikasi ke state paling sering 1 kali per detik
           fpsCounterRef.current.frames++;
           if (now - fpsCounterRef.current.lastTime >= 1000) {
             const currentFps = Math.round(
               (fpsCounterRef.current.frames * 1000) / (now - fpsCounterRef.current.lastTime)
             );
             setFps(currentFps);
+            setBallisticFps(currentFps);
             fpsCounterRef.current.frames = 0;
             fpsCounterRef.current.lastTime = now;
             fpsCounterRef.current.activeSeconds++;
 
             if (fpsCounterRef.current.activeSeconds >= 3 && currentFps < 12) {
-              setLowFpsWarning(true);
+              setLowFpsWarning((prev) => (prev ? prev : true));
             } else if (currentFps >= 12) {
-              setLowFpsWarning(false);
+              setLowFpsWarning((prev) => (!prev ? prev : false));
             }
           }
         }
       }
     }
+  }, []);
 
-    requestAnimationIdRef.current = requestAnimationFrame(processFrame);
-  }, [landmarker, onPoseDetected, ruleSet.requiredLandmarks, stage]);
-
-  // Manajemen lifecycle RAF & event visibilitychange tab
+  // Manajemen lifecycle RAF tunggal & event visibilitychange tab
   useEffect(() => {
+    let animId: number | null = null;
+    let isCancelled = false;
+
+    const loop = () => {
+      if (isCancelled) return;
+      processFrame();
+      animId = requestAnimationFrame(loop);
+      requestAnimationIdRef.current = animId;
+    };
+
     if (landmarkerReady && stage !== "guide") {
-      requestAnimationIdRef.current = requestAnimationFrame(processFrame);
+      animId = requestAnimationFrame(loop);
+      requestAnimationIdRef.current = animId;
     }
 
     const handleVisibilityChange = () => {
@@ -313,17 +433,28 @@ export const CameraStage: React.FC<CameraStageProps> = ({
           cancelAnimationFrame(requestAnimationIdRef.current);
           requestAnimationIdRef.current = null;
         }
+        if (animId) {
+          cancelAnimationFrame(animId);
+          animId = null;
+        }
       } else {
-        if (landmarkerReady && stage !== "guide" && !requestAnimationIdRef.current) {
-          requestAnimationIdRef.current = requestAnimationFrame(processFrame);
+        if (!isCancelled && landmarkerReady && stageRef.current !== "guide" && !requestAnimationIdRef.current) {
+          animId = requestAnimationFrame(loop);
+          requestAnimationIdRef.current = animId;
         }
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
+      isCancelled = true;
+      if (animId) {
+        cancelAnimationFrame(animId);
+      }
       if (requestAnimationIdRef.current) {
         cancelAnimationFrame(requestAnimationIdRef.current);
+        requestAnimationIdRef.current = null;
       }
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
@@ -366,6 +497,8 @@ export const CameraStage: React.FC<CameraStageProps> = ({
       {stage === "guide" && (
         <SetupGuide
           exerciseName={exerciseName}
+          view={currentView}
+          cameraTip={cameraTip}
           onStart={handleStartFromGuide}
         />
       )}
@@ -396,7 +529,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
             {countdown}
           </div>
           <span className="font-metric text-lg font-bold uppercase tracking-wider text-white mt-4">
-            Ambil Posisi Samping...
+            {currentView === "front" ? "Hadap Lurus ke Kamera..." : "Ambil Posisi Samping..."}
           </span>
         </div>
       )}
@@ -417,6 +550,16 @@ export const CameraStage: React.FC<CameraStageProps> = ({
           <div className="bg-amber-950/90 border border-amber-500/80 text-amber-200 px-3.5 py-1.5 rounded-xl text-xs font-sans flex items-center gap-2 shadow-xl backdrop-blur-md">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
             <span>Performa rendah ({fps} FPS). Tutup aplikasi lain atau gunakan ruangan lebih terang.</span>
+          </div>
+        </div>
+      )}
+
+      {/* PERINGATAN FPS BALLISTIC (< 24 FPS) */}
+      {ruleSet.id === "hinge-ballistic" && fps > 0 && fps < 24 && (
+        <div className="absolute top-16 inset-x-4 z-20 flex justify-center pointer-events-none">
+          <div className="bg-amber-950/90 border border-amber-500/80 text-amber-200 px-3.5 py-1.5 rounded-xl text-xs font-sans flex items-center gap-2 shadow-xl backdrop-blur-md">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Gerakan cepat butuh kamera ≥ 30 fps; hasil kurang akurat</span>
           </div>
         </div>
       )}
@@ -470,6 +613,14 @@ export const CameraStage: React.FC<CameraStageProps> = ({
               )}
             </div>
           </div>
+
+          {/* Banner Akurasi Terbatas untuk RuleSet scored === false atau custom banner */}
+          {(ruleSet.scored === false || ruleSet.banner) && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-sans font-semibold backdrop-blur-md shadow-md w-fit">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>{ruleSet.banner || "Akurasi terbatas untuk gerakan ini"}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -484,6 +635,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
           holdTimeSec={counterState.holdTimeSec}
           cleanHoldSec={counterState.cleanHoldSec}
           phase={counterState.phase}
+          scored={ruleSet.scored}
         />
       )}
 
@@ -494,6 +646,8 @@ export const CameraStage: React.FC<CameraStageProps> = ({
           mode={ruleSet.mode}
           reps={counterRef.current.getCompletedReps()}
           holdResult={ruleSet.mode === "hold" ? counterRef.current.getHoldResult() : null}
+          banner={ruleSet.banner}
+          scored={ruleSet.scored}
           onRestart={handleRestart}
           onFinish={handleFinish}
           onApplyReps={handleApplyReps}

@@ -395,18 +395,10 @@ export default function HomePage() {
 
   const handleCoachComplete = (summary: { repsAnalyzed: number; avgScore: number; topIssues: { checkId: string; count: number }[] }) => {
     if (!coachExercise) return;
-    const exId = coachExercise.id;
-    const sets = activeSets[exId] || [];
-    const firstUnfinished = sets.find((s) => !s.completed);
+    const firstUnfinished = (activeSets[coachExercise.id] || []).find((s) => !s.completed);
     if (firstUnfinished && summary.repsAnalyzed > 0) {
-      setSetMetricDirect(exId, firstUnfinished.id, "reps", summary.repsAnalyzed);
-      setActiveSets((prev) => {
-        const cur = prev[exId] || [];
-        return {
-          ...prev,
-          [exId]: cur.map((s) => (s.id === firstUnfinished.id ? { ...s, formSummary: summary } : s)),
-        };
-      });
+      setSetMetricDirect(coachExercise.id, firstUnfinished.id, "reps", summary.repsAnalyzed);
+      setActiveSets((prev) => ({ ...prev, [coachExercise.id]: (prev[coachExercise.id] || []).map((s) => s.id === firstUnfinished.id ? { ...s, formSummary: summary } : s) }));
     }
     setCoachExercise(null);
   };
@@ -1038,16 +1030,7 @@ export default function HomePage() {
                                 {exercise.formCoach && (
                                   <>
                                     <span className="text-zinc-600">•</span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        if (isActive) {
-                                          e.stopPropagation();
-                                          setCoachExercise(exercise);
-                                        }
-                                      }}
-                                      className="text-[11px] text-lime-400 hover:underline flex items-center gap-1 font-bold font-metric tracking-wide"
-                                    >
+                                    <button type="button" onClick={(e) => { if (isActive) { e.stopPropagation(); setCoachExercise(exercise); } }} className="text-[11px] text-lime-400 hover:underline flex items-center gap-1 font-bold font-metric tracking-wide">
                                       <Camera className="w-3 h-3" /> CEK FORM
                                     </button>
                                   </>
@@ -1227,11 +1210,7 @@ export default function HomePage() {
       />
 
       {/* Form Coach Modal */}
-      <FormCoachModal
-        exercise={coachExercise}
-        onClose={() => setCoachExercise(null)}
-        onComplete={handleCoachComplete}
-      />
+      <FormCoachModal exercise={coachExercise} onClose={() => setCoachExercise(null)} onComplete={handleCoachComplete} />
 
       {/* End-of-Workout Shareable Summary Card Modal (No Browser Alert) */}
       <WorkoutSummaryModal

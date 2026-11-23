@@ -105,6 +105,8 @@ export const FormCoachModal: React.FC<FormCoachModalProps> = ({
             <CameraStage
               exerciseId={exercise.id}
               exerciseName={exercise.name}
+              view={exercise.formCoach?.view}
+              cameraTip={exercise.formCoach?.cameraTip}
               onClose={onClose}
               onComplete={onComplete}
             />

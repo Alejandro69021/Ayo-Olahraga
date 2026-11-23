@@ -15,6 +15,8 @@ interface ResultSummaryProps {
   mode: "reps" | "hold";
   reps: RepResult[];
   holdResult?: HoldResult | null;
+  banner?: string;
+  scored?: boolean;
   onRestart: () => void;
   onFinish: () => void;
   onApplyReps?: (summary: FormCoachSummary) => void;
@@ -25,13 +27,15 @@ export default function ResultSummary({
   mode,
   reps,
   holdResult,
+  banner,
+  scored,
   onRestart,
   onFinish,
   onApplyReps,
 }: ResultSummaryProps) {
   // Hitung metrik ringkasan
   const totalReps = reps.length;
-  const isTierC = reps.length > 0 ? reps.every((r) => r.score === undefined) : false;
+  const isTierC = scored === false || (reps.length > 0 ? reps.every((r) => r.score === undefined) : false);
   const scoredReps = reps.filter((r) => typeof r.score === "number");
   const avgScore =
     mode === "reps"
@@ -113,11 +117,11 @@ export default function ResultSummary({
           </div>
         </div>
 
-        {/* Banner Khusus Tier C */}
-        {isTierC && (
+        {/* Banner Khusus Tier C / Custom Banner */}
+        {(isTierC || banner) && (
           <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2 text-xs text-amber-300 font-medium">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>Akurasi terbatas untuk gerakan ini</span>
+            <span>{banner || "Akurasi terbatas untuk gerakan ini"}</span>
           </div>
         )}
 
@@ -182,12 +186,17 @@ export default function ResultSummary({
           )}
         </div>
 
-        {/* Disclaimer Kamera */}
-        <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded-xl flex items-start gap-2 text-xs text-neutral-400 leading-relaxed">
-          <ShieldAlert className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
-          <span>
+        {/* Disclaimer Medis & Kamera */}
+        <div className="p-3 bg-neutral-900/60 border border-neutral-800 rounded-xl flex flex-col gap-1.5 text-xs text-neutral-400 leading-relaxed">
+          <div className="flex items-start gap-2 text-neutral-300">
+            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <span>
+              Panduan latihan, bukan diagnosis medis. Hentikan latihan jika terasa nyeri.
+            </span>
+          </div>
+          <div className="text-[11px] text-neutral-400 pl-6">
             Estimasi pose dari satu kamera bisa meleset belasan derajat. Gunakan sebagai panduan, bukan pengganti pelatih atau tenaga medis.
-          </span>
+          </div>
         </div>
 
         {/* Tombol Aksi */}

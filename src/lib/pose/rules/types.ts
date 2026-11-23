@@ -50,6 +50,7 @@ export interface RuleSet {
   exerciseIds: string[];
   view: "side" | "front" | "any";
   tier?: "A" | "B" | "C";
+  scored?: boolean;
   banner?: string;
   requiredLandmarks: number[];
   mode: "reps" | "hold";

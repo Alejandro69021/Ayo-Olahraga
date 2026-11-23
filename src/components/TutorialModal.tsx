@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Play,
@@ -14,7 +14,8 @@ import {
   ChevronDown,
   Layers,
   Activity,
-  Camera
+  Camera,
+  WifiOff,
 } from "lucide-react";
 import { ExerciseDetail } from "@/data/exercises";
 import { getYouTubeEmbedUrl } from "@/lib/youtube";
@@ -40,6 +41,23 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
     safety: false,
     science: false,
   });
+
+  const [isOffline, setIsOffline] = useState<boolean>(() => {
+    return typeof navigator !== "undefined" ? !navigator.onLine : false;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   if (!exercise) return null;
 
@@ -80,15 +98,29 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
 
         {/* Modal Body - Video First, Accordion Below */}
         <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-          {/* Primary Focal Point: 16:9 Looped 3D Video Demo */}
+          {/* Primary Focal Point: 16:9 Looped 3D Video Demo / Offline Notice */}
           <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black border border-gray-800 shadow-xl group">
-            <iframe
-              src={embedUrl}
-              title={exercise.name}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="w-full h-full border-0"
-            />
+            {isOffline ? (
+              <div className="w-full h-full bg-neutral-950 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
+                  <WifiOff className="w-6 h-6 stroke-[2]" />
+                </div>
+                <h3 className="font-metric text-base sm:text-lg font-bold uppercase tracking-wide text-white mb-1">
+                  Video butuh koneksi internet
+                </h3>
+                <p className="text-xs text-neutral-400 max-w-sm">
+                  Mode offline aktif. Anda tetap dapat mengikuti instruksi teknik lengkap pada panduan langkah di bawah.
+                </p>
+              </div>
+            ) : (
+              <iframe
+                src={embedUrl}
+                title={exercise.name}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
+            )}
           </div>
 
           {/* Muscle Summary Snippet */}
