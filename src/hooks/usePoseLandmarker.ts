@@ -7,10 +7,12 @@ export interface UsePoseLandmarkerResult {
   landmarker: PoseLandmarker | null;
   isReady: boolean;
   error: string | null;
+  delegate: "GPU" | "CPU" | null;
 }
 
 // Module-level cache singleton: mencegah inisialisasi ulang model 5.5MB setiap kali modal dibuka/tutup
 let cachedLandmarker: PoseLandmarker | null = null;
+let cachedDelegate: "GPU" | "CPU" | null = null;
 let landmarkerPromise: Promise<PoseLandmarker> | null = null;
 let activeConsumers = 0;
 let disposeTimer: NodeJS.Timeout | null = null;
@@ -39,6 +41,7 @@ async function getOrCreateLandmarker(): Promise<PoseLandmarker> {
         runningMode: "VIDEO",
         numPoses: 1,
       });
+      cachedDelegate = "GPU";
     } catch {
       // 2. Fallback aman ke CPU jika perangkat tidak mendukung akselerasi GPU
       instance = await PoseLandmarker.createFromOptions(vision, {
@@ -49,6 +52,7 @@ async function getOrCreateLandmarker(): Promise<PoseLandmarker> {
         runningMode: "VIDEO",
         numPoses: 1,
       });
+      cachedDelegate = "CPU";
     }
 
     cachedLandmarker = instance;
@@ -63,6 +67,7 @@ export function usePoseLandmarker(): UsePoseLandmarkerResult {
   const [landmarker, setLandmarker] = useState<PoseLandmarker | null>(cachedLandmarker);
   const [isReady, setIsReady] = useState<boolean>(cachedLandmarker !== null);
   const [error, setError] = useState<string | null>(null);
+  const [delegate, setDelegate] = useState<"GPU" | "CPU" | null>(cachedDelegate);
 
   useEffect(() => {
     let isCancelled = false;
@@ -77,12 +82,14 @@ export function usePoseLandmarker(): UsePoseLandmarkerResult {
     if (cachedLandmarker) {
       setLandmarker(cachedLandmarker);
       setIsReady(true);
+      setDelegate(cachedDelegate);
     } else {
       getOrCreateLandmarker()
         .then((instance) => {
           if (!isCancelled) {
             setLandmarker(instance);
             setIsReady(true);
+            setDelegate(cachedDelegate);
           }
         })
         .catch((err: unknown) => {
@@ -105,11 +112,12 @@ export function usePoseLandmarker(): UsePoseLandmarkerResult {
               cachedLandmarker.close();
             } catch {}
             cachedLandmarker = null;
+            cachedDelegate = null;
           }
         }, 60000);
       }
     };
   }, []);
 
-  return { landmarker, isReady, error };
+  return { landmarker, isReady, error, delegate };
 }

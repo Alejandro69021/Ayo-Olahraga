@@ -100,8 +100,8 @@ export default function ResultSummary({
     avgScore >= 80 ? "text-[#DFFF00]" : avgScore >= 60 ? "text-amber-400" : "text-red-400";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-lg animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-neutral-950 border border-neutral-800 rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-lg animate-in fade-in duration-200">
+      <div className="w-full max-w-md max-h-[92vh] overflow-y-auto bg-neutral-950 border border-neutral-800 rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col gap-4 sm:gap-5">
         {/* Header Ringkasan */}
         <div className="flex items-center gap-3 border-b border-neutral-800 pb-4">
           <div className="p-3 bg-[#DFFF00]/10 border border-[#DFFF00]/30 rounded-xl text-[#DFFF00]">

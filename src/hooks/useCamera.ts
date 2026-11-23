@@ -81,8 +81,9 @@ export function useCamera(initialFacingMode: FacingMode = "user"): UseCameraResu
           audio: false,
           video: {
             facingMode: { ideal: mode },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30 },
           },
         };
 
@@ -103,7 +104,11 @@ export function useCamera(initialFacingMode: FacingMode = "user"): UseCameraResu
           } else if (err.name === "OverconstrainedError") {
             try {
               const fallbackStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
+                video: {
+                  width: { ideal: 640 },
+                  height: { ideal: 480 },
+                  frameRate: { ideal: 30 },
+                },
                 audio: false,
               });
               streamRef.current = fallbackStream;
