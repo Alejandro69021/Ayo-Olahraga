@@ -34,7 +34,6 @@ import { TutorialModal } from "@/components/TutorialModal";
 import { FormCoachModal } from "@/components/form-coach/FormCoachModal";
 import { WorkoutSummaryModal } from "@/components/WorkoutSummaryModal";
 import { FitnessTools } from "@/components/FitnessTools";
-import { LeaderboardModal } from "@/components/LeaderboardModal";
 import { ProFeatureModal } from "@/components/ProFeatureModal";
 import { ChunkyStepper } from "@/components/ChunkyStepper";
 import { EquipmentCard } from "@/components/EquipmentCard";
@@ -51,7 +50,6 @@ import { EXERCISES_DATABASE, ExerciseDetail } from "@/data/exercises";
 import {
   saveWorkoutSessionOffline,
   getAllSessionsOffline,
-  syncPendingWorkouts,
   getRecommendedWeightAndReps,
   WorkoutSessionPayload
 } from "@/lib/offline-storage";
@@ -68,7 +66,6 @@ export default function HomePage() {
   const [tutorialExercise, setTutorialExercise] = useState<ExerciseDetail | null>(null);
   const [coachExercise, setCoachExercise] = useState<ExerciseDetail | null>(null);
   const [summarySession, setSummarySession] = useState<WorkoutSessionPayload | null>(null);
-  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
   const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
 
   // Offline / Online state
@@ -114,7 +111,6 @@ export default function HomePage() {
 
     const handleOnline = () => {
       setIsOnline(true);
-      syncPendingWorkouts();
     };
     const handleOffline = () => setIsOnline(false);
 
@@ -426,6 +422,46 @@ export default function HomePage() {
       }
     });
 
+    let prsBroken = 0;
+    if (offlineSessions.length > 0) {
+      sessionExercises.forEach((ex) => {
+        let hasPriorCompletedSet = false;
+        let prevBestWeight = 0;
+        let prevBestReps = 0;
+
+        offlineSessions.forEach((hist) => {
+          const match = hist.exercises?.find((he) => he.id === ex.id);
+          if (!match) return;
+          match.sets.forEach((hs) => {
+            if (!hs.completed) return;
+            hasPriorCompletedSet = true;
+            const w = Number(hs.weight) || 0;
+            const r = Number(hs.reps) || 0;
+            if (w > prevBestWeight) prevBestWeight = w;
+            if (r > prevBestReps) prevBestReps = r;
+          });
+        });
+
+        if (!hasPriorCompletedSet) return;
+
+        let curBestWeight = 0;
+        let curBestReps = 0;
+        ex.sets.forEach((cs: any) => {
+          const w = Number(cs.weight) || 0;
+          const r = Number(cs.reps) || 0;
+          if (w > curBestWeight) curBestWeight = w;
+          if (r > curBestReps) curBestReps = r;
+        });
+
+        if (
+          curBestWeight > prevBestWeight ||
+          (prevBestWeight === 0 && curBestWeight === 0 && curBestReps > prevBestReps)
+        ) {
+          prsBroken += 1;
+        }
+      });
+    }
+
     const payload: WorkoutSessionPayload = {
       id: "session-" + Date.now(),
       title: "Sesi Latihan " + new Date().toLocaleDateString("id-ID", { weekday: "long" }),
@@ -434,9 +470,9 @@ export default function HomePage() {
       durationSeconds: duration,
       totalVolumeKg: Math.round(totalVolume),
       totalReps: totalRepsCount,
-      prsBroken: totalVolume > 5000 ? 2 : 1,
+      prsBroken,
       exercises: sessionExercises,
-      synced: isOnline,
+      synced: false,
     };
 
     // Save offline first
@@ -494,7 +530,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Global Action Bar: Tools, Leaderboard, Online Status */}
+        {/* Global Action Bar: Tools, Online Status */}
         <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
           {/* Connectivity Badge */}
           <div
@@ -507,15 +543,6 @@ export default function HomePage() {
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
             <span className="hidden xs:inline font-metric font-bold uppercase">{isOnline ? "ONLINE" : "OFFLINE PWA"}</span>
           </div>
-
-          {/* Leaderboard Trigger */}
-          <button
-            onClick={() => setIsLeaderboardOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141414] hover:bg-[#1E1E1E] border border-[#262626] text-xs font-metric font-bold uppercase text-gray-200 transition-colors"
-          >
-            <Trophy className="w-4 h-4 text-lime-400" />
-            <span className="hidden sm:inline">PAPAN JUARA</span>
-          </button>
 
           {/* Nutrition / Tools Switcher */}
           <button
@@ -698,7 +725,7 @@ export default function HomePage() {
                   PILIH PERALATAN LATIHAN
                 </h2>
                 <p className="text-xs text-gray-400 mt-1 font-sans">
-                  Saring katalog 42 gerakan ilmiah berdasarkan ketersediaan alat di gym atau rumah Anda:
+                  Saring katalog {EXERCISES_DATABASE.length} gerakan ilmiah berdasarkan ketersediaan alat di gym atau rumah Anda:
                 </p>
               </div>
 
@@ -1221,12 +1248,6 @@ export default function HomePage() {
             window.scrollTo({ top: 0, behavior: "instant" });
           }
         }}
-      />
-
-      {/* Champions Leaderboard Modal */}
-      <LeaderboardModal
-        isOpen={isLeaderboardOpen}
-        onClose={() => setIsLeaderboardOpen(false)}
       />
 
       {/* Pro Tier Feature Modal */}
