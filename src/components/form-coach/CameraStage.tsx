@@ -14,6 +14,7 @@ import {
   setBallisticFps,
 } from "@/lib/pose/rules/config";
 import { PoseFrame } from "@/lib/pose/rules/types";
+import { LandmarkSmoother } from "@/lib/pose/smoothing";
 import FeedbackPanel from "./FeedbackPanel";
 import ResultSummary, { FormCoachSummary } from "./ResultSummary";
 import SetupGuide from "./SetupGuide";
@@ -63,6 +64,7 @@ const DEFAULT_REQUIRED_JOINTS = [
 
 const TARGET_FPS = 24;
 const FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
+const POSE_SMOOTHING_ALPHA = 0.25;
 
 export const CameraStage: React.FC<CameraStageProps> = ({
   exerciseId = "bw-air-squat",
@@ -125,6 +127,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
     view || (ruleSet.view === "front" ? "front" : "side");
   const counterRef = useRef<RepCounter>(new RepCounter(ruleSet, exerciseId));
   const gateRef = useRef<PoseGate>(new PoseGate(ruleSet, exerciseId, counterRef.current));
+  const smootherRef = useRef<LandmarkSmoother>(new LandmarkSmoother(POSE_SMOOTHING_ALPHA));
 
   const [counterState, setCounterState] = useState<CounterUpdate>({
     phase: "idle",
@@ -142,6 +145,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   useEffect(() => {
     counterRef.current = new RepCounter(ruleSet, exerciseId);
     gateRef.current = new PoseGate(ruleSet, exerciseId, counterRef.current);
+    smootherRef.current.reset();
     const initialCounter: CounterUpdate = {
       phase: "idle",
       repsCount: 0,
@@ -268,6 +272,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   }, []);
 
   const handleStartFromGuide = () => {
+    smootherRef.current.reset();
     if (!isFileSource) {
       startCamera();
     }
@@ -306,6 +311,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
 
   // Pasang stream kamera ke video element
   useEffect(() => {
+    smootherRef.current.reset();
     if (!isFileSource && videoRef.current && stream) {
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch(() => {});
@@ -337,6 +343,9 @@ export const CameraStage: React.FC<CameraStageProps> = ({
     // Evaluasi koneksi kamera (track live & tidak muted)
     const videoTrack = streamRef.current ? streamRef.current.getVideoTracks()[0] : null;
     const isCameraConnected = isFile || (videoTrack ? (videoTrack.readyState === "live" && !videoTrack.muted) : false);
+    if (!isCameraConnected) {
+      smootherRef.current.reset();
+    }
 
     if (
       video &&
@@ -406,10 +415,19 @@ export const CameraStage: React.FC<CameraStageProps> = ({
           latestWorldLandmarksRef.current = worldLandmarks;
 
           // Evaluasi melalui Gerbang Pose
-          const side = currentLandmarks ? pickVisibleSide(currentLandmarks) : "left";
-          const frame: PoseFrame | null = currentLandmarks
+          const hasValidLandmarks = Boolean(
+            isCameraConnected && currentLandmarks && currentLandmarks.length > 0
+          );
+          if (!hasValidLandmarks) {
+            smootherRef.current.reset();
+          }
+          const smoothedLandmarks = hasValidLandmarks
+            ? smootherRef.current.smooth(currentLandmarks!)
+            : null;
+          const side = smoothedLandmarks ? pickVisibleSide(smoothedLandmarks) : "left";
+          const frame: PoseFrame | null = smoothedLandmarks
             ? {
-                landmarks: currentLandmarks,
+                landmarks: smoothedLandmarks,
                 worldLandmarks,
                 timestampMs: now,
                 side,
@@ -569,6 +587,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   const handleRestart = () => {
     counterRef.current = new RepCounter(ruleSet, exerciseId);
     gateRef.current = new PoseGate(ruleSet, exerciseId, counterRef.current);
+    smootherRef.current.reset();
     const initialCounter: CounterUpdate = {
       phase: "idle",
       repsCount: 0,

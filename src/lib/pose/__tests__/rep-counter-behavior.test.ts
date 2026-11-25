@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { RepCounter, CounterUpdate } from "../rep-counter";
 import { SQUAT_RULESET, resetViolationStreaks } from "../rules/config";
+import { LandmarkSmoother } from "../smoothing";
 import { PoseFrame } from "../rules/types";
 import {
   Landmark,
@@ -280,5 +281,50 @@ describe("RepCounter SQUAT_RULESET behavior", () => {
       }
     }
     expect(squatUpdate.repsCount).toBe(5);
+  });
+
+  it("10. JITTER KAKI BELAKANG + SMOOTHER: urutan sudut lutut kiri (derajat, 33 ms/frame) 94.9,110.9,119.6,135.7,150.4,158.2,168.6,132.0,103.4,119.9,141.9,153.9,156.8,159.4,170,172 yang melewati LandmarkSmoother(0.25) lalu RepCounter setelah satu squat penuh menghasilkan TEPAT 1 rep", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    const smoother = new LandmarkSmoother(0.25);
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    const feed = (angleDeg: number) => {
+      const raw = createSquatPoseFrame(angleDeg, ts);
+      lastUpdate = counter.update({
+        ...raw,
+        landmarks: smoother.smooth(raw.landmarks),
+      });
+      ts += FRAME_INTERVAL_MS;
+    };
+
+    // Kalibrasi berdiri >= 1500 ms (~48 frame @ 33ms)
+    for (let i = 0; i < 48; i++) {
+      feed(STANDING_KNEE_DEG);
+    }
+
+    // Turun ke dasar satu squat penuh
+    for (const angle of [165, 158, 149, 142, 134, 126, 118, 110, 102, 95]) {
+      feed(angle);
+    }
+
+    // Urutan sudut lutut kiri berjitter pada kaki belakang
+    const jitterSeq = [
+      94.9, 110.9, 119.6, 135.7, 150.4, 158.2, 168.6, 132.0,
+      103.4, 119.9, 141.9, 153.9, 156.8, 159.4, 170, 172,
+    ];
+    for (const angle of jitterSeq) {
+      feed(angle);
+      if (angle === 168.6) {
+        expect(lastUpdate.repsCount).toBe(0);
+      }
+    }
+
+    // Frame berdiri penutup agar EMA(0.25) melewati upThreshold 160° & konfirmasi 2 frame
+    for (let i = 0; i < 5; i++) {
+      feed(172);
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
   });
 });
