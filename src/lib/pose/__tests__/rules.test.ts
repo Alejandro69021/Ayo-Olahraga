@@ -1199,15 +1199,15 @@ describe("Form Coach - Rep Counter & Rule Sets", () => {
   });
 
   // SQUAT: Pelanggaran squat-descent-speed
-  it("SQUAT: melanggar cek 'squat-descent-speed' (turun terburu-buru < 1000 ms)", () => {
+  it("SQUAT: melanggar cek 'squat-descent-speed' (turun terburu-buru < 600 ms)", () => {
     const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
     for (let t = 100; t <= 1700; t += 300) counter.update(createSquatFrameDetailed(170, 10, false, t));
 
-    // Turun sangat cepat: dari t=1800 (145°) ke t=2200 (90°) -> 400ms < 1000ms
+    // Turun sangat cepat: 145 derajat di t=1800 ke frame naik pertama di t=2250 -> 450 ms < 600 ms
     counter.update(createSquatFrameDetailed(145, 10, false, 1800));
     counter.update(createSquatFrameDetailed(90, 10, false, 2200));
     // Naik kembali
-    counter.update(createSquatFrameDetailed(95, 10, false, 2400));
+    counter.update(createSquatFrameDetailed(95, 10, false, 2250));
     counter.update(createSquatFrameDetailed(135, 10, false, 2600));
     counter.update(createSquatFrameDetailed(170, 10, false, 2800));
 

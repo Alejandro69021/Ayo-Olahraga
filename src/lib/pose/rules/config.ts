@@ -244,9 +244,10 @@ export const SQUAT_DESCENT_SPEED_CHECK: FormCheck = {
   severity: "minor",
   when: "bottom",
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
-    // Fase turun (eksentrik) yang terburu-buru (< 1000 ms)
-    // heuristik, toleransi ±10–15°
-    if (ctx.descentDurationMs > 0 && ctx.descentDurationMs < 1000) {
+    // Durasi dihitung sejak sudut melewati downThreshold (150 derajat), bukan
+    // dari awal turun; squat terkontrol 2 detik per siklus sekitar 700-800 ms.
+    // Heuristik 600 ms, perlu dikalibrasi dengan data kamera nyata.
+    if (ctx.descentDurationMs > 0 && ctx.descentDurationMs < 600) {
       return {
         ok: false,
         value: ctx.descentDurationMs,
