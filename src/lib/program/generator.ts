@@ -293,17 +293,55 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
   // Inisialisasi sesi minggu 1 dalam 2 fase agar gerakan utama tidak tergeser aksesori
   const week1Rir = getRirForWeek(profile, 1, false);
   const minSets = PROGRAM_CONFIG.minSetsPerExercise;
+  const maxSetsPerEx = PROGRAM_CONFIG.maxSetsPerExercise;
   const sessionPickedExercises: PlannedExercise[][] = templates.map(() => []);
   const pickedInSessionSet: Set<string>[] = templates.map(() => new Set());
   const sessionSlotDone: Set<MuscleKey>[] = templates.map(() => new Set());
+  const limitedVolumeWarnings = new Set<string>();
+
+  const recordLimitedVolume = (muscle: MuscleKey, sessionLabel: string) => {
+    limitedVolumeWarnings.add(
+      `Volume ${muscle} di sesi ${sessionLabel} lebih rendah dari target karena pilihan gerakan terbatas`
+    );
+  };
+
+  // Persiapan pola tarikan BACK (v-pull vs h-pull bila v-pull tersedia & >=2 sesi BACK)
+  const backSessionIndices = templates
+    .map((tpl, idx) => (tpl.muscles.includes("BACK") ? idx : -1))
+    .filter((idx) => idx >= 0);
+  const hasVPullCandidate = candidates.some(
+    (ex) => ex.primaryMuscle === "BACK" && EXERCISE_META[ex.id].pattern === "v-pull"
+  );
+  const hasHPullCandidate = candidates.some(
+    (ex) => ex.primaryMuscle === "BACK" && EXERCISE_META[ex.id].pattern === "h-pull"
+  );
 
   const tryAssignSlot = (sIdx: number, muscle: MuscleKey, requireMainRole: boolean) => {
     if (sessionSlotDone[sIdx].has(muscle)) return;
 
-    const pool = candidates.filter(
+    let pool = candidates.filter(
       (ex) => ex.primaryMuscle === muscle && !pickedInSessionSet[sIdx].has(ex.id)
     );
     if (pool.length === 0) return;
+
+    if (
+      muscle === "BACK" &&
+      backSessionIndices.length >= 2 &&
+      hasVPullCandidate
+    ) {
+      const backOrder = backSessionIndices.indexOf(sIdx);
+      if (backOrder === 1) {
+        const vPullPool = pool.filter(
+          (ex) => EXERCISE_META[ex.id].pattern === "v-pull"
+        );
+        if (vPullPool.length > 0) pool = vPullPool;
+      } else if (backOrder === 0 && hasHPullCandidate) {
+        const hPullPool = pool.filter(
+          (ex) => EXERCISE_META[ex.id].pattern === "h-pull"
+        );
+        if (hPullPool.length > 0) pool = hPullPool;
+      }
+    }
 
     const hasMain = pool.some((ex) => EXERCISE_META[ex.id].role === "main");
     if (requireMainRole && !hasMain) return;
@@ -337,7 +375,7 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
     }
   });
 
-  // Pass 2: tambah set menuju week1Target (prioritas otot priorityMuscles lebih dulu)
+  // Pass 2: tambah set menuju week1Target (prioritas otot priorityMuscles lebih dulu, hormati maxSetsPerExercise)
   const orderedMusclesForTopUp: MuscleKey[] = [
     ...profile.priorityMuscles,
     ...ALL_MUSCLES.filter((m) => !profile.priorityMuscles.includes(m)),
@@ -351,6 +389,7 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
 
       let bestTarget: { sIdx: number; eIdx: number } | null = null;
       let lowestSets = Infinity;
+      let blockedOnlyByMaxSetsIdx: number | null = null;
 
       sessionPickedExercises.forEach((exercises, sIdx) => {
         exercises.forEach((planned, eIdx) => {
@@ -366,10 +405,16 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
             return;
           }
 
-          if (
-            canApplySets(ex, sessionEffectiveList[sIdx], 1) &&
-            planned.sets < lowestSets
-          ) {
+          if (!canApplySets(ex, sessionEffectiveList[sIdx], 1)) {
+            return;
+          }
+
+          if (planned.sets >= maxSetsPerEx) {
+            if (blockedOnlyByMaxSetsIdx === null) blockedOnlyByMaxSetsIdx = sIdx;
+            return;
+          }
+
+          if (planned.sets < lowestSets) {
             lowestSets = planned.sets;
             bestTarget = { sIdx, eIdx };
           }
@@ -383,8 +428,141 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
         planned.sets += 1;
         applySets(ex, sessionEffectiveList[target.sIdx], 1);
         topUpChanged = true;
+      } else if (blockedOnlyByMaxSetsIdx !== null) {
+        recordLimitedVolume(muscle, templates[blockedOnlyByMaxSetsIdx].label);
       }
     }
+  }
+
+  // Tambah aksesori bahu samping/belakang (delt-raise / rear-delt) di sesi bertemplat SHOULDERS, variasi antar sesi
+  const deltRaisePool = candidates.filter(
+    (ex) => EXERCISE_META[ex.id].pattern === "delt-raise"
+  );
+  const rearDeltPool = candidates.filter(
+    (ex) => EXERCISE_META[ex.id].pattern === "rear-delt"
+  );
+
+  if (deltRaisePool.length > 0 || rearDeltPool.length > 0) {
+    let shoulderSessionOrder = 0;
+    templates.forEach((tpl, sIdx) => {
+      if (!tpl.muscles.includes("SHOULDERS")) return;
+      const exercises = sessionPickedExercises[sIdx];
+      const sessionEff = sessionEffectiveList[sIdx];
+
+      const alreadyHasAccessory = exercises.some((planned) => {
+        const pattern = EXERCISE_META[planned.exerciseId].pattern;
+        return pattern === "delt-raise" || pattern === "rear-delt";
+      });
+      if (alreadyHasAccessory) {
+        shoulderSessionOrder += 1;
+        return;
+      }
+
+      const preferRear =
+        deltRaisePool.length > 0 &&
+        rearDeltPool.length > 0 &&
+        shoulderSessionOrder % 2 === 1;
+      const primaryPool = preferRear ? rearDeltPool : deltRaisePool;
+      const fallbackPool = preferRear ? deltRaisePool : rearDeltPool;
+
+      const availablePrimary = primaryPool.filter(
+        (ex) => !pickedInSessionSet[sIdx].has(ex.id)
+      );
+      const availableFallback = fallbackPool.filter(
+        (ex) => !pickedInSessionSet[sIdx].has(ex.id)
+      );
+      const chosenPool =
+        availablePrimary.length > 0 ? availablePrimary : availableFallback;
+      if (chosenPool.length === 0) {
+        shoulderSessionOrder += 1;
+        return;
+      }
+
+      const accEx = pickCandidateForMuscle(chosenPool, profile, usageCount);
+      const accRole = EXERCISE_META[accEx.id].role;
+      const accMinutes = minSets * PROGRAM_CONFIG.minutesPerSet[accRole];
+
+      const existingIdx = exercises.findIndex(
+        (planned) => exerciseById.get(planned.exerciseId)?.primaryMuscle === "SHOULDERS"
+      );
+
+      if (existingIdx !== -1) {
+        const existingPlanned = exercises[existingIdx];
+        const existingEx = exerciseById.get(existingPlanned.exerciseId)!;
+        const existingRole = EXERCISE_META[existingPlanned.exerciseId].role;
+
+        if (existingPlanned.sets >= 2 * minSets) {
+          // Ambil minSets langsung dari gerakan SHOULDERS di sesi ini
+          applySets(existingEx, sessionEff, -minSets);
+          const timeDelta =
+            accMinutes - minSets * PROGRAM_CONFIG.minutesPerSet[existingRole];
+          if (
+            canApplySets(accEx, sessionEff, minSets) &&
+            estimateSessionMinutes(exercises) + timeDelta <= profile.sessionMinutes
+          ) {
+            existingPlanned.sets -= minSets;
+            applySets(accEx, sessionEff, minSets);
+            pickedInSessionSet[sIdx].add(accEx.id);
+            usageCount.set(accEx.id, (usageCount.get(accEx.id) ?? 0) + 1);
+            exercises.push(buildPlannedExercise(accEx, minSets, profile, week1Rir));
+          } else {
+            applySets(existingEx, sessionEff, minSets);
+          }
+        } else {
+          // Coba simpan keduanya bila masih muat cap & sessionMax & durasi; kalau tidak, alihkan set gerakan bahu yang ada
+          const reduceExisting = Math.max(0, existingPlanned.sets - minSets);
+          if (reduceExisting > 0) applySets(existingEx, sessionEff, -reduceExisting);
+          const keepBothFits =
+            canApplySets(accEx, sessionEff, minSets) &&
+            estimateSessionMinutes(exercises) +
+              accMinutes -
+              reduceExisting * PROGRAM_CONFIG.minutesPerSet[existingRole] <=
+              profile.sessionMinutes;
+
+          if (keepBothFits) {
+            existingPlanned.sets -= reduceExisting;
+            applySets(accEx, sessionEff, minSets);
+            pickedInSessionSet[sIdx].add(accEx.id);
+            usageCount.set(accEx.id, (usageCount.get(accEx.id) ?? 0) + 1);
+            exercises.push(buildPlannedExercise(accEx, minSets, profile, week1Rir));
+          } else {
+            if (reduceExisting > 0) applySets(existingEx, sessionEff, reduceExisting);
+            const swapSets = Math.max(minSets, Math.min(maxSetsPerEx, existingPlanned.sets));
+            applySets(existingEx, sessionEff, -existingPlanned.sets);
+            const swapTimeDelta =
+              swapSets * PROGRAM_CONFIG.minutesPerSet[accRole] -
+              existingPlanned.sets * PROGRAM_CONFIG.minutesPerSet[existingRole];
+            if (
+              canApplySets(accEx, sessionEff, swapSets) &&
+              estimateSessionMinutes(exercises) + swapTimeDelta <= profile.sessionMinutes
+            ) {
+              applySets(accEx, sessionEff, swapSets);
+              pickedInSessionSet[sIdx].delete(existingPlanned.exerciseId);
+              pickedInSessionSet[sIdx].add(accEx.id);
+              usageCount.set(accEx.id, (usageCount.get(accEx.id) ?? 0) + 1);
+              exercises[existingIdx] = buildPlannedExercise(
+                accEx,
+                swapSets,
+                profile,
+                week1Rir
+              );
+            } else {
+              applySets(existingEx, sessionEff, existingPlanned.sets);
+            }
+          }
+        }
+      } else if (
+        canApplySets(accEx, sessionEff, minSets) &&
+        estimateSessionMinutes(exercises) + accMinutes <= profile.sessionMinutes
+      ) {
+        applySets(accEx, sessionEff, minSets);
+        pickedInSessionSet[sIdx].add(accEx.id);
+        usageCount.set(accEx.id, (usageCount.get(accEx.id) ?? 0) + 1);
+        exercises.push(buildPlannedExercise(accEx, minSets, profile, week1Rir));
+      }
+
+      shoulderSessionOrder += 1;
+    });
   }
 
   // Langkah 5 & Masalah 1: pangkas durasi berlebih & pastikan non-deload >= minSetsPerExercise via urutan (a), (b), (c)
@@ -453,6 +631,7 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
         const other = exercises[j];
         const otherEx = exerciseById.get(other.exerciseId);
         if (!otherEx || otherEx.primaryMuscle !== currentEx.primaryMuscle) continue;
+        if (other.sets + current.sets > maxSetsPerEx) continue;
 
         const currentRole = EXERCISE_META[current.exerciseId].role;
         const otherRole = EXERCISE_META[other.exerciseId].role;
@@ -551,6 +730,7 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
       while (remainingIncrement > 0) {
         let bestCandidate: { sIdx: number; eIdx: number } | null = null;
         let lowestSets = Infinity;
+        let blockedOnlyByMaxSetsLabel: string | null = null;
 
         nextSessions.forEach((sess, sIdx) => {
           sess.exercises.forEach((planned, eIdx) => {
@@ -582,14 +762,28 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
               }
             }
 
-            if (withinLimits && planned.sets < lowestSets) {
+            if (!withinLimits) return;
+
+            if (planned.sets >= maxSetsPerEx) {
+              if (blockedOnlyByMaxSetsLabel === null) {
+                blockedOnlyByMaxSetsLabel = sess.label;
+              }
+              return;
+            }
+
+            if (planned.sets < lowestSets) {
               lowestSets = planned.sets;
               bestCandidate = { sIdx, eIdx };
             }
           });
         });
 
-        if (!bestCandidate) break;
+        if (!bestCandidate) {
+          if (blockedOnlyByMaxSetsLabel !== null) {
+            recordLimitedVolume(muscle, blockedOnlyByMaxSetsLabel);
+          }
+          break;
+        }
 
         const { sIdx, eIdx } = bestCandidate;
         const targetPlanned = nextSessions[sIdx].exercises[eIdx];
@@ -672,6 +866,10 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
         );
       }
     }
+  }
+
+  for (const volumeWarning of limitedVolumeWarnings) {
+    warnings.push(volumeWarning);
   }
 
   // Langkah 9: rationale[] (3-5 kalimat Indonesia singkat)

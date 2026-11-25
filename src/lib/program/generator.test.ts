@@ -297,4 +297,110 @@ describe("program/generator", () => {
       }
     }
   });
+
+  it('o. untuk profil otot/Menengah/4 hari/60 menit/["barbell","dumbbell"]: tidak ada gerakan dengan sets > maxSetsPerExercise di minggu mana pun', () => {
+    const plan = generatePlan(makeProfile());
+    for (const week of plan.weeks) {
+      for (const sess of week.sessions) {
+        for (const planned of sess.exercises) {
+          expect(
+            planned.sets,
+            `week ${week.weekIndex} ${sess.label} ${planned.exerciseId}`
+          ).toBeLessThanOrEqual(PROGRAM_CONFIG.maxSetsPerExercise);
+        }
+      }
+    }
+  });
+
+  it('p. profil yang sama: minimal satu sesi punya gerakan pattern "v-pull" DAN minimal satu sesi punya gerakan pattern "h-pull"', () => {
+    const plan = generatePlan(makeProfile());
+    for (const week of plan.weeks) {
+      const hasVPull = week.sessions.some((sess) =>
+        sess.exercises.some((planned) => EXERCISE_META[planned.exerciseId].pattern === "v-pull")
+      );
+      const hasHPull = week.sessions.some((sess) =>
+        sess.exercises.some((planned) => EXERCISE_META[planned.exerciseId].pattern === "h-pull")
+      );
+      expect(hasVPull, `week ${week.weekIndex} missing v-pull`).toBe(true);
+      expect(hasHPull, `week ${week.weekIndex} missing h-pull`).toBe(true);
+    }
+  });
+
+  it('q. profil yang sama: setiap sesi yang templatnya memuat SHOULDERS punya minimal satu gerakan pattern "delt-raise" atau "rear-delt"', () => {
+    const plan = generatePlan(makeProfile());
+    const shoulderSessionLabels = new Set(["Upper A", "Upper B"]);
+    const shoulderPatterns = new Set(["delt-raise", "rear-delt"]);
+
+    for (const week of plan.weeks) {
+      for (const sess of week.sessions) {
+        if (!shoulderSessionLabels.has(sess.label)) continue;
+        const hasAccessory = sess.exercises.some((planned) =>
+          shoulderPatterns.has(EXERCISE_META[planned.exerciseId].pattern)
+        );
+        expect(
+          hasAccessory,
+          `week ${week.weekIndex} ${sess.label} missing delt-raise/rear-delt`
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('r. profil ["bodyweight"] saja: tetap menghasilkan rencana tanpa error dan tanpa gerakan 1 set di minggu non-deload', () => {
+    const plan = generatePlan(makeProfile({ equipment: ["bodyweight"] }));
+    expect(plan.weeks).toHaveLength(PROGRAM_CONFIG.mesocycleWeeks);
+    for (const week of plan.weeks) {
+      if (week.isDeload) continue;
+      for (const sess of week.sessions) {
+        for (const planned of sess.exercises) {
+          expect(planned.sets).toBeGreaterThanOrEqual(PROGRAM_CONFIG.minSetsPerExercise);
+          expect(planned.sets).toBeLessThanOrEqual(PROGRAM_CONFIG.maxSetsPerExercise);
+        }
+      }
+    }
+  });
+
+  it("s. tidak ada otot yang melewati cap set mingguan dan tidak ada gerakan > maxSetsPerExercise pada berbagai profil", () => {
+    const profiles: UserProfile[] = [
+      makeProfile({ daysPerWeek: 2, level: "Menengah" }),
+      makeProfile({ daysPerWeek: 3, level: "Lanjutan" }),
+      makeProfile({ daysPerWeek: 4, level: "Menengah", priorityMuscles: ["CHEST", "SHOULDERS"] }),
+      makeProfile({ daysPerWeek: 5, level: "Lanjutan", equipment: ["barbell", "dumbbell", "plate"] }),
+      makeProfile({ daysPerWeek: 4, jointComplaints: ["shoulder"] }),
+    ];
+
+    for (const profile of profiles) {
+      const plan = generatePlan(profile);
+      for (const week of plan.weeks) {
+        const weeklyEff = new Map<MuscleKey, number>();
+        for (const m of ALL_MUSCLES) weeklyEff.set(m, 0);
+
+        for (const sess of week.sessions) {
+          for (const planned of sess.exercises) {
+            expect(planned.sets).toBeLessThanOrEqual(PROGRAM_CONFIG.maxSetsPerExercise);
+            const ex = exerciseMap.get(planned.exerciseId)!;
+            const p = ex.primaryMuscle as MuscleKey;
+            weeklyEff.set(p, (weeklyEff.get(p) ?? 0) + planned.sets);
+
+            for (const sec of ex.secondaryMuscles) {
+              const sk = sec as MuscleKey;
+              if (sk !== p) {
+                weeklyEff.set(
+                  sk,
+                  (weeklyEff.get(sk) ?? 0) +
+                    planned.sets * PROGRAM_CONFIG.secondaryMuscleWeight
+                );
+              }
+            }
+          }
+        }
+
+        for (const m of ALL_MUSCLES) {
+          const factor =
+            MUSCLE_CLASS[m] === "small" ? PROGRAM_CONFIG.smallMuscleFactor : 1;
+          const cap = PROGRAM_CONFIG.levelVolume[profile.level].cap * factor;
+          expect(weeklyEff.get(m) ?? 0).toBeLessThanOrEqual(cap);
+        }
+      }
+    }
+  });
 });

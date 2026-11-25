@@ -137,6 +137,9 @@ export const PROGRAM_CONFIG = {
   /** Batas minimum set per gerakan pada minggu akumulasi (non-deload). Heuristik. */
   minSetsPerExercise: 2,
 
+  /** Batas maksimum set per gerakan dalam satu sesi. Heuristik. */
+  maxSetsPerExercise: 5,
+
   /** Estimasi menit per set (termasuk istirahat). Untuk menyesuaikan jumlah gerakan dengan durasi sesi. Heuristik. */
   minutesPerSet: { main: 2.5, accessory: 1.8, finisher: 1.2, skill: 2.5 },
   warmupMinutes: 5,
