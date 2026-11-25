@@ -54,11 +54,17 @@ import {
   getRecommendedWeightAndReps,
   WorkoutSessionPayload
 } from "@/lib/offline-storage";
-import { resolveExercisesFromQuery } from "@/components/program/session-link";
+import {
+  ExerciseTargetSpec,
+  formatTrackerTargetLine,
+  parseTargets,
+  resolveExercisesFromQuery,
+} from "@/components/program/session-link";
 
 function buildInitialSets(
   exercises: ExerciseDetail[],
-  sessions: WorkoutSessionPayload[]
+  sessions: WorkoutSessionPayload[],
+  targets?: Record<string, ExerciseTargetSpec>
 ): { [exerciseId: string]: any[] } {
   const initialSets: { [exerciseId: string]: any[] } = {};
   exercises.forEach((ex) => {
@@ -66,11 +72,19 @@ function buildInitialSets(
       ex.id,
       sessions
     );
-    initialSets[ex.id] = [
-      { id: 1, setNumber: 1, weight, reps, completed: false, isProgressive: isProgressiveIncrease },
-      { id: 2, setNumber: 2, weight, reps, completed: false, isProgressive: false },
-      { id: 3, setNumber: 3, weight, reps: Math.max(6, reps - 2), completed: false, isProgressive: false },
-    ];
+    const planned = targets?.[ex.id];
+    const setCount = planned ? planned.sets : 3;
+    initialSets[ex.id] = Array.from({ length: setCount }, (_, idx) => {
+      const setNumber = idx + 1;
+      return {
+        id: setNumber,
+        setNumber,
+        weight,
+        reps: !planned && setNumber === 3 ? Math.max(6, reps - 2) : reps,
+        completed: false,
+        isProgressive: setNumber === 1 ? isProgressiveIncrease : false,
+      };
+    });
   });
   return initialSets;
 }
@@ -110,6 +124,7 @@ export default function HomePage() {
   // Step 3: Selected Routine Exercises
   const [selectedWorkoutList, setSelectedWorkoutList] = useState<ExerciseDetail[]>([]);
   const skipNextFilterSyncRef = useRef<boolean>(false);
+  const [programTargets, setProgramTargets] = useState<Record<string, ExerciseTargetSpec>>({});
 
   // Step 4: Live Gym Tracker State
   // { [exerciseId]: [{ id, setNumber, weight, reps, completed, isProgressive }] }
@@ -140,20 +155,21 @@ export default function HomePage() {
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    const programExercises = resolveExercisesFromQuery(
-      window.location.search,
-      EXERCISES_DATABASE
-    );
+    const search = window.location.search;
+    const programExercises = resolveExercisesFromQuery(search, EXERCISES_DATABASE);
+    const parsedTargets =
+      programExercises.length > 0 ? parseTargets(search, EXERCISES_DATABASE) : {};
     if (programExercises.length > 0) {
       skipNextFilterSyncRef.current = true;
       setSelectedWorkoutList(programExercises);
+      setProgramTargets(parsedTargets);
     }
 
     getAllSessionsOffline().then((sessions) => {
       if (cancelled) return;
       setOfflineSessions(sessions);
       if (programExercises.length > 0) {
-        setActiveSets(buildInitialSets(programExercises, sessions));
+        setActiveSets(buildInitialSets(programExercises, sessions, parsedTargets));
         setWorkoutStartTime(Date.now());
         setCurrentExerciseIndex(0);
         setCurrentStep(4);
@@ -283,6 +299,7 @@ export default function HomePage() {
       skipNextFilterSyncRef.current = false;
       return;
     }
+    setProgramTargets((prev) => (Object.keys(prev).length > 0 ? {} : prev));
     if (filteredExercises.length > 0) {
       setSelectedWorkoutList(filteredExercises.slice(0, 6));
     }
@@ -338,7 +355,7 @@ export default function HomePage() {
     const exercisesToTrack =
       selectedWorkoutList.length > 0 ? selectedWorkoutList : filteredExercises.slice(0, 3);
 
-    setActiveSets(buildInitialSets(exercisesToTrack, offlineSessions));
+    setActiveSets(buildInitialSets(exercisesToTrack, offlineSessions, programTargets));
     setWorkoutStartTime(Date.now());
     setCurrentExerciseIndex(0);
     setCurrentStep(4);
@@ -1081,6 +1098,11 @@ export default function HomePage() {
                               <h3 className="text-sm sm:text-base font-black text-white truncate font-sans">
                                 {exercise.name}
                               </h3>
+                              {isActive && programTargets[exercise.id] && (
+                                <p className="text-[11px] text-lime-300/90 mt-0.5 font-sans">
+                                  {formatTrackerTargetLine(exercise.id, programTargets[exercise.id])}
+                                </p>
+                              )}
                               <div className="flex items-center gap-2 mt-0.5">
                                 <button
                                   type="button"

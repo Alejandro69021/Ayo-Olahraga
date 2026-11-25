@@ -123,7 +123,7 @@ export const ProgramView: React.FC = () => {
 
   const handleStartSession = (exercises: PlannedExercise[]) => {
     if (exercises.length === 0) return;
-    router.push(buildSessionTrackerHref(exercises.map((item) => item.exerciseId)));
+    router.push(buildSessionTrackerHref(exercises));
   };
 
   if (isLoading) {
