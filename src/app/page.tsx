@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
 import {
   Play,
   CheckCircle2,
@@ -53,6 +54,26 @@ import {
   getRecommendedWeightAndReps,
   WorkoutSessionPayload
 } from "@/lib/offline-storage";
+import { resolveExercisesFromQuery } from "@/components/program/session-link";
+
+function buildInitialSets(
+  exercises: ExerciseDetail[],
+  sessions: WorkoutSessionPayload[]
+): { [exerciseId: string]: any[] } {
+  const initialSets: { [exerciseId: string]: any[] } = {};
+  exercises.forEach((ex) => {
+    const { weight, reps, isProgressiveIncrease } = getRecommendedWeightAndReps(
+      ex.id,
+      sessions
+    );
+    initialSets[ex.id] = [
+      { id: 1, setNumber: 1, weight, reps, completed: false, isProgressive: isProgressiveIncrease },
+      { id: 2, setNumber: 2, weight, reps, completed: false, isProgressive: false },
+      { id: 3, setNumber: 3, weight, reps: Math.max(6, reps - 2), completed: false, isProgressive: false },
+    ];
+  });
+  return initialSets;
+}
 
 export default function HomePage() {
   // Navigation / View Tabs: 'builder' | 'tools'
@@ -88,6 +109,7 @@ export default function HomePage() {
 
   // Step 3: Selected Routine Exercises
   const [selectedWorkoutList, setSelectedWorkoutList] = useState<ExerciseDetail[]>([]);
+  const skipNextFilterSyncRef = useRef<boolean>(false);
 
   // Step 4: Live Gym Tracker State
   // { [exerciseId]: [{ id, setNumber, weight, reps, completed, isProgressive }] }
@@ -107,6 +129,7 @@ export default function HomePage() {
 
   // Listen to connectivity & initialize historical offline data
   useEffect(() => {
+    let cancelled = false;
     setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
 
     const handleOnline = () => {
@@ -117,11 +140,28 @@ export default function HomePage() {
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
+    const programExercises = resolveExercisesFromQuery(
+      window.location.search,
+      EXERCISES_DATABASE
+    );
+    if (programExercises.length > 0) {
+      skipNextFilterSyncRef.current = true;
+      setSelectedWorkoutList(programExercises);
+    }
+
     getAllSessionsOffline().then((sessions) => {
+      if (cancelled) return;
       setOfflineSessions(sessions);
+      if (programExercises.length > 0) {
+        setActiveSets(buildInitialSets(programExercises, sessions));
+        setWorkoutStartTime(Date.now());
+        setCurrentExerciseIndex(0);
+        setCurrentStep(4);
+      }
     });
 
     return () => {
+      cancelled = true;
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
@@ -239,6 +279,10 @@ export default function HomePage() {
 
   // Keep routine list populated whenever filtering changes
   useEffect(() => {
+    if (skipNextFilterSyncRef.current) {
+      skipNextFilterSyncRef.current = false;
+      return;
+    }
     if (filteredExercises.length > 0) {
       setSelectedWorkoutList(filteredExercises.slice(0, 6));
     }
@@ -293,21 +337,8 @@ export default function HomePage() {
   const startWorkoutSession = () => {
     const exercisesToTrack =
       selectedWorkoutList.length > 0 ? selectedWorkoutList : filteredExercises.slice(0, 3);
-    const initialSets: { [key: string]: any[] } = {};
 
-    exercisesToTrack.forEach((ex) => {
-      const { weight, reps, isProgressiveIncrease } = getRecommendedWeightAndReps(
-        ex.id,
-        offlineSessions
-      );
-      initialSets[ex.id] = [
-        { id: 1, setNumber: 1, weight, reps, completed: false, isProgressive: isProgressiveIncrease },
-        { id: 2, setNumber: 2, weight, reps, completed: false, isProgressive: false },
-        { id: 3, setNumber: 3, weight, reps: Math.max(6, reps - 2), completed: false, isProgressive: false },
-      ];
-    });
-
-    setActiveSets(initialSets);
+    setActiveSets(buildInitialSets(exercisesToTrack, offlineSessions));
     setWorkoutStartTime(Date.now());
     setCurrentExerciseIndex(0);
     setCurrentStep(4);
@@ -543,6 +574,15 @@ export default function HomePage() {
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
             <span className="hidden xs:inline font-metric font-bold uppercase">{isOnline ? "ONLINE" : "OFFLINE PWA"}</span>
           </div>
+
+          {/* Wizard Buat Program */}
+          <Link
+            href="/program/new"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-lime-400/15 hover:bg-lime-400/25 border border-lime-400/40 text-lime-300 text-xs font-metric font-bold uppercase transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-lime-400" />
+            <span>PROGRAM</span>
+          </Link>
 
           {/* Nutrition / Tools Switcher */}
           <button
