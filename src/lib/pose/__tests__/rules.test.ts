@@ -2397,7 +2397,7 @@ describe("Form Coach - Rep Counter & Rule Sets", () => {
     }
   });
 
-  it("Integritas Form Coach: seluruh 42 exercise memiliki formCoach valid, ruleSetId terdaftar di config.ts, dan view in {'side', 'front'}", () => {
+  it("Integritas Form Coach: seluruh exercise memiliki formCoach valid, ruleSetId terdaftar di config.ts, dan view in {'side', 'front'}", () => {
     const validRuleSetIds = new Set(ALL_RULESETS.map((r) => r.id));
     const exercisesWithCoach = EXERCISES_DATABASE.filter((ex) => ex.formCoach);
 
@@ -2408,8 +2408,8 @@ describe("Form Coach - Rep Counter & Rule Sets", () => {
       expect(["side", "front"]).toContain(ex.formCoach!.view);
     }
 
-    // (c) jumlah exercise dengan formCoach adalah tepat 42 (tanpa ada yang dikecualikan)
-    expect(exercisesWithCoach.length).toBe(42);
-    expect(EXERCISES_DATABASE.length).toBe(42);
+    // (c) jumlah exercise dengan formCoach cocok dengan seluruh entri database (tanpa ada yang dikecualikan)
+    expect(exercisesWithCoach.length).toBe(EXERCISES_DATABASE.length);
+    expect(EXERCISES_DATABASE.length).toBeGreaterThanOrEqual(46);
   });
 });

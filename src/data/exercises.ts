@@ -1,4 +1,5 @@
 import { ExerciseAttributeValueEnum } from "@/components/muscles/types";
+import { NEW_EXERCISES } from "./new-exercises";
 
 export interface ExerciseDetail {
   id: string;
@@ -11,8 +12,8 @@ export interface ExerciseDetail {
   secondaryMuscles: ExerciseAttributeValueEnum[];
   secondaryMuscleNames: string[];
   difficulty: "Pemula" | "Menengah" | "Lanjutan";
-  videoUrl: string;
-  fullVideoImageUrl: string;
+  videoUrl?: string;
+  fullVideoImageUrl?: string;
   summary: string;
   formCoach?: {
     ruleSetId:
@@ -57,7 +58,7 @@ export interface ExerciseDetail {
   };
 }
 
-export const EXERCISES_DATABASE: ExerciseDetail[] = [
+const BASE_EXERCISES: ExerciseDetail[] = [
   // =========================================================================
   // 1. BARBELL (MURNI BARBEL BEBAS — VIDEO ULTRA-SHORT / DEMO ≤ 30 DETIK)
   // =========================================================================
@@ -1885,4 +1886,9 @@ export const EXERCISES_DATABASE: ExerciseDetail[] = [
       cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping jalur langkah Anda, seluruh tubuh terlihat.",
     },
   }
+];
+
+export const EXERCISES_DATABASE: ExerciseDetail[] = [
+  ...BASE_EXERCISES,
+  ...NEW_EXERCISES,
 ];

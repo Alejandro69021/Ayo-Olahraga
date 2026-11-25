@@ -102,4 +102,10 @@ export const EXERCISE_META: Record<string, ExerciseMeta> = {
   "plate-russian-twist":  m("core-rotation", "finisher", 1, 1, "external", [12, 24], false, false, ["lowerBack"]),
   "plate-overhead-squat": m("squat", "accessory", 2, 3, "external", [6, 10], false, false, ["shoulder", "knee", "lowerBack"]),
   "plate-pinch-carry":    m("carry", "finisher", 1, 1, "time", [20, 40], false, false, ["wrist"]),
+
+  // ===== TAMBAHAN DUMBEL =====
+  "db-romanian-deadlift":          m("hinge", "main", 2, 2, "external", [8, 12], false, false, ["lowerBack"]),
+  "db-glute-bridge":               m("bridge", "accessory", 1, 1, "external", [10, 20], false, false, []),
+  "db-standing-calf-raise":        m("calf", "accessory", 1, 1, "external", [10, 20], false, false, ["ankle"]),
+  "db-overhead-triceps-extension": m("elbow-extension", "accessory", 1, 1, "external", [8, 15], false, false, ["elbow", "shoulder"]),
 };

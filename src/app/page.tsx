@@ -887,14 +887,22 @@ export default function HomePage() {
                       onClick={() => setTutorialExercise(exercise)}
                       className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-black border border-[#262626] cursor-pointer group/thumb"
                     >
-                      <img
-                        src={exercise.fullVideoImageUrl}
-                        alt={exercise.name}
-                        className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/10 flex items-center justify-center">
-                        <Play className="w-4 h-4 text-white fill-white/80" />
-                      </div>
+                      {exercise.fullVideoImageUrl ? (
+                        <>
+                          <img
+                            src={exercise.fullVideoImageUrl}
+                            alt={exercise.name}
+                            className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/30 group-hover/thumb:bg-black/10 flex items-center justify-center">
+                            <Play className="w-4 h-4 text-white fill-white/80" />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-zinc-500">
+                          <Dumbbell className="w-5 h-5" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Title & Muscle Badge */}
@@ -1084,14 +1092,22 @@ export default function HomePage() {
                               }}
                               className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-black border border-zinc-800 cursor-pointer group/thumb"
                             >
-                              <img
-                                src={exercise.fullVideoImageUrl}
-                                alt={exercise.name}
-                                className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
-                              />
-                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                                <Play className="w-3.5 h-3.5 text-white fill-white" />
-                              </div>
+                              {exercise.fullVideoImageUrl ? (
+                                <>
+                                  <img
+                                    src={exercise.fullVideoImageUrl}
+                                    alt={exercise.name}
+                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
+                                  />
+                                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                                    <Play className="w-3.5 h-3.5 text-white fill-white" />
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-zinc-500">
+                                  <Dumbbell className="w-4 h-4" />
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex-1 min-w-0">

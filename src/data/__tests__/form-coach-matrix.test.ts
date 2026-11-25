@@ -4,8 +4,8 @@ import { FORM_REFERENCE_MAP } from "../form-references";
 import { EXERCISES_DATABASE } from "../exercises";
 
 describe("Form Coach Matrix & References Integrity", () => {
-  it("(a) tepat 42 entri dan setiap exerciseId ada di src/data/exercises.ts", () => {
-    expect(FORM_COACH_MATRIX.length).toBe(42);
+  it("(a) semua entri cocok jumlahnya dan setiap exerciseId ada di src/data/exercises.ts", () => {
+    expect(FORM_COACH_MATRIX.length).toBe(EXERCISES_DATABASE.length);
 
     const validExerciseIds = new Set(EXERCISES_DATABASE.map((e) => e.id));
     for (const entry of FORM_COACH_MATRIX) {
@@ -37,6 +37,6 @@ describe("Form Coach Matrix & References Integrity", () => {
       expect(seenIds.has(entry.exerciseId)).toBe(false);
       seenIds.add(entry.exerciseId);
     }
-    expect(seenIds.size).toBe(42);
+    expect(seenIds.size).toBe(EXERCISES_DATABASE.length);
   });
 });

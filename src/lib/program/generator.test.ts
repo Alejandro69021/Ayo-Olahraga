@@ -403,4 +403,58 @@ describe("program/generator", () => {
       }
     }
   });
+
+  it('t. untuk profil otot/Menengah/4 hari/60 menit/["barbell","dumbbell"]: total set efektif QUADRICEPS minggu 1 > 7', () => {
+    const plan = generatePlan(makeProfile());
+    let quadsEffective = 0;
+    for (const sess of plan.weeks[0].sessions) {
+      for (const planned of sess.exercises) {
+        const ex = exerciseMap.get(planned.exerciseId)!;
+        if (ex.primaryMuscle === "QUADRICEPS") {
+          quadsEffective += planned.sets;
+        } else if (ex.secondaryMuscles.includes("QUADRICEPS" as never)) {
+          quadsEffective += planned.sets * PROGRAM_CONFIG.secondaryMuscleWeight;
+        }
+      }
+    }
+    expect(quadsEffective).toBeGreaterThan(7);
+  });
+
+  it('u. untuk profil otot/Menengah/4 hari/60 menit/["barbell","dumbbell"]: tidak ada gerakan dengan sets > maxSetsPerExercise', () => {
+    const plan = generatePlan(makeProfile());
+    for (const week of plan.weeks) {
+      for (const sess of week.sessions) {
+        for (const planned of sess.exercises) {
+          expect(planned.sets).toBeLessThanOrEqual(PROGRAM_CONFIG.maxSetsPerExercise);
+        }
+      }
+    }
+  });
+
+  it('v. untuk profil otot/Menengah/4 hari/60 menit/["barbell","dumbbell"]: total estimasi menit tiap sesi <= sessionMinutes', () => {
+    const profile = makeProfile();
+    const plan = generatePlan(profile);
+    for (const week of plan.weeks) {
+      for (const sess of week.sessions) {
+        expect(estimateMinutes(sess)).toBeLessThanOrEqual(profile.sessionMinutes);
+      }
+    }
+  });
+
+  it('w. profil ["bodyweight"] saja tetap menghasilkan rencana tanpa error dan tanpa sets > maxSetsPerExercise', () => {
+    const plan = generatePlan(
+      makeProfile({ level: "Pemula", equipment: ["bodyweight"] })
+    );
+    expect(plan.weeks).toHaveLength(PROGRAM_CONFIG.mesocycleWeeks);
+    for (const week of plan.weeks) {
+      for (const sess of week.sessions) {
+        for (const planned of sess.exercises) {
+          expect(planned.sets).toBeLessThanOrEqual(PROGRAM_CONFIG.maxSetsPerExercise);
+          if (!week.isDeload) {
+            expect(planned.sets).toBeGreaterThanOrEqual(PROGRAM_CONFIG.minSetsPerExercise);
+          }
+        }
+      }
+    }
+  });
 });

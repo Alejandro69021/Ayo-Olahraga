@@ -766,7 +766,12 @@ export const HINGE_NOT_SQUAT_CHECK: FormCheck = {
   when: "continuous",
   evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
     // Berlaku spesifik untuk Romanian Deadlift di mana lutut hanya soft bend
-    if (ctx.exerciseId !== "bb-romanian-deadlift") return { ok: true, value: 180, cue: "" };
+    if (
+      ctx.exerciseId !== "bb-romanian-deadlift" &&
+      ctx.exerciseId !== "db-romanian-deadlift"
+    ) {
+      return { ok: true, value: 180, cue: "" };
+    }
 
     const { hip, knee, ankle } = getSideJoints(frame.landmarks, frame.side);
     if (!hip || !knee || !ankle) return { ok: true, value: 180, cue: "" };
@@ -817,7 +822,7 @@ export const NO_LEAN_BACK_CHECK: FormCheck = {
 
 export const HINGE_RULESET: RuleSet = {
   id: "hinge",
-  exerciseIds: ["bb-deadlift", "bb-romanian-deadlift"],
+  exerciseIds: ["bb-deadlift", "bb-romanian-deadlift", "db-romanian-deadlift"],
   view: "side",
   requiredLandmarks: [
     L_SHOULDER,
@@ -986,7 +991,7 @@ export const CALF_NO_BOUNCE_CHECK: FormCheck = {
 
 export const CALF_RULESET: RuleSet = {
   id: "calf",
-  exerciseIds: ["bw-calf-raise"],
+  exerciseIds: ["bw-calf-raise", "db-standing-calf-raise"],
   view: "side",
   requiredLandmarks: [
     L_KNEE,
@@ -1074,7 +1079,7 @@ export const HEEL_PRESS_CHECK: FormCheck = {
 
 export const BRIDGE_RULESET: RuleSet = {
   id: "bridge",
-  exerciseIds: ["bw-glute-bridge"],
+  exerciseIds: ["bw-glute-bridge", "db-glute-bridge"],
   view: "side",
   requiredLandmarks: [
     L_SHOULDER,
@@ -2171,7 +2176,7 @@ export const TRICEPS_PRESS_LOCKOUT_CHECK: FormCheck = {
 
 export const TRICEPS_EXT_RULESET: RuleSet = {
   id: "triceps-ext",
-  exerciseIds: ["bb-skull-crusher"],
+  exerciseIds: ["bb-skull-crusher", "db-overhead-triceps-extension"],
   view: "side",
   tier: "C",
   banner: "Tidak ada rujukan jurnal terverifikasi",

@@ -1,5 +1,5 @@
 /**
- * Matriks Form Coach — SEMUA 42 gerakan di src/data/exercises.ts
+ * Matriks Form Coach — SEMUA 46 gerakan di src/data/exercises.ts
  *
  * Tiga tingkat kelayakan kamera (1 kamera 2D, model PoseLandmarker):
  *  A = andal  : sudut sendi sagital terbaca baik; semua cek utama bisa dinilai.
@@ -129,7 +129,7 @@ const NS_SCAP = "Gerak skapula tidak bisa dinilai kamera 2D.";
 const SQ_READ = ["schoenfeld-2010", "straub-powers-2024", "hartmann-2013", "myer-2014", "akd-review-2023"] as const;
 const NS_SQ = ["Lutut melewati ujung jari kaki TIDAK ditandai sebagai kesalahan (ulasan menunjukkan membatasinya menggeser beban ke pinggul/punggung dan mengurangi kedalaman).", NS_SPINE] as const;
 
-// ───────────────────────── 42 GERAKAN ─────────────────────────
+// ───────────────────────── 46 GERAKAN ─────────────────────────
 export const FORM_COACH_MATRIX: readonly FormCoachEntry[] = [
   // ===== SQUAT (tier A) =====
   { exerciseId: "bw-air-squat", family: "squat", tier: "A", primaryView: "samping", mode: "reps",
@@ -273,4 +273,18 @@ export const FORM_COACH_MATRIX: readonly FormCoachEntry[] = [
   { exerciseId: "plate-pinch-carry", family: "carry", tier: "C", primaryView: "samping", mode: "hold",
     checks: [CK.uprightCarry], notScored: ["Kekuatan genggam tidak terbaca.", NS_SCAP],
     readingRefs: ["winwood-2014", "mcgill-strongman-2009", "loaded-carry-2024"], honestNote: "Hitung durasi tegak; tidak ada skor presisi." },
+
+  // ===== TAMBAHAN 4 GERAKAN BARU =====
+  { exerciseId: "db-romanian-deadlift", family: "hinge", tier: "B", primaryView: "samping", mode: "reps",
+    checks: [CK.hingeNotSquat, CK.barClose, CK.hipLockout], notScored: [NS_SPINE, "Lintasan dumbel tidak dilacak (hanya posisi pergelangan sebagai perkiraan)."],
+    readingRefs: ["ramirez-2022", "deadlift-lumbar-2022"] },
+  { exerciseId: "db-glute-bridge", family: "bridge", tier: "A", primaryView: "samping", mode: "reps",
+    checks: [CK.fullHipExt, CK.heelPress], notScored: ["Hiperekstensi lumbal tidak terlihat.", "Dumbel di pinggul dapat menutupi titik pinggul."],
+    readingRefs: ["contreras-2015", "gmax-review-2020"], honestNote: "Jurnal menguji hip thrust berbeban, bukan glute bridge dengan dumbel di lantai." },
+  { exerciseId: "db-standing-calf-raise", family: "calf", tier: "A", primaryView: "samping", mode: "reps",
+    checks: [CK.straightKnee, CK.calfRom, CK.noBounce], notScored: [],
+    readingRefs: ["triceps-surae-knee-2002", "heel-raise-2012", "gastroc-torque-1995"] },
+  { exerciseId: "db-overhead-triceps-extension", family: "triceps-ext", tier: "C", primaryView: "samping", mode: "reps",
+    checks: [CK.upperArmFixed, CK.pressLockout], notScored: ["Siku melebar ke samping hanya terbaca dari depan.", "Lintasan dumbel tidak dilacak."],
+    readingRefs: [], honestNote: "Tidak ada jurnal peer-reviewed terverifikasi untuk kriteria form gerakan ini; semua cek berstatus praktik pelatih." },
 ];

@@ -375,6 +375,48 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
     }
   });
 
+  // Helper menambahkan gerakan kedua untuk otot sama di sesi ketika gerakan utama mencapai maxSetsPerExercise
+  const tryAddSecondExerciseForMuscle = (sIdx: number, muscle: MuscleKey): boolean => {
+    const exercises = sessionPickedExercises[sIdx];
+    const sessionEff = sessionEffectiveList[sIdx];
+
+    const fittingPool = candidates.filter((ex) => {
+      if (ex.primaryMuscle !== muscle) return false;
+      if (pickedInSessionSet[sIdx].has(ex.id)) return false;
+      const role = EXERCISE_META[ex.id].role;
+      if (
+        estimateSessionMinutes(exercises) +
+          minSets * PROGRAM_CONFIG.minutesPerSet[role] >
+        profile.sessionMinutes
+      ) {
+        return false;
+      }
+      return canApplySets(ex, sessionEff, minSets);
+    });
+    if (fittingPool.length === 0) return false;
+
+    const currentIds = new Set(exercises.map((p) => p.exerciseId));
+    const distinctPool = fittingPool.filter((candidate) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(candidate.id);
+      return !sessionPickedExercises.some((otherExs, otherIdx) => {
+        if (otherIdx === sIdx || otherExs.length !== nextIds.size) return false;
+        return otherExs.every((p) => nextIds.has(p.exerciseId));
+      });
+    });
+
+    const chosen = pickCandidateForMuscle(
+      distinctPool.length > 0 ? distinctPool : fittingPool,
+      profile,
+      usageCount
+    );
+    applySets(chosen, sessionEff, minSets);
+    pickedInSessionSet[sIdx].add(chosen.id);
+    usageCount.set(chosen.id, (usageCount.get(chosen.id) ?? 0) + 1);
+    exercises.push(buildPlannedExercise(chosen, minSets, profile, week1Rir));
+    return true;
+  };
+
   // Pass 2: tambah set menuju week1Target (prioritas otot priorityMuscles lebih dulu, hormati maxSetsPerExercise)
   const orderedMusclesForTopUp: MuscleKey[] = [
     ...profile.priorityMuscles,
@@ -389,7 +431,7 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
 
       let bestTarget: { sIdx: number; eIdx: number } | null = null;
       let lowestSets = Infinity;
-      let blockedOnlyByMaxSetsIdx: number | null = null;
+      const blockedOnlyByMaxSetsIndices: number[] = [];
 
       sessionPickedExercises.forEach((exercises, sIdx) => {
         exercises.forEach((planned, eIdx) => {
@@ -410,7 +452,9 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
           }
 
           if (planned.sets >= maxSetsPerEx) {
-            if (blockedOnlyByMaxSetsIdx === null) blockedOnlyByMaxSetsIdx = sIdx;
+            if (!blockedOnlyByMaxSetsIndices.includes(sIdx)) {
+              blockedOnlyByMaxSetsIndices.push(sIdx);
+            }
             return;
           }
 
@@ -428,8 +472,21 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
         planned.sets += 1;
         applySets(ex, sessionEffectiveList[target.sIdx], 1);
         topUpChanged = true;
-      } else if (blockedOnlyByMaxSetsIdx !== null) {
-        recordLimitedVolume(muscle, templates[blockedOnlyByMaxSetsIdx].label);
+      } else if (blockedOnlyByMaxSetsIndices.length > 0) {
+        const remainingNeeded = week1Target[muscle] - weeklyEffective[muscle];
+        let addedSecond = false;
+        if (remainingNeeded >= minSets) {
+          for (const sIdx of blockedOnlyByMaxSetsIndices) {
+            if (tryAddSecondExerciseForMuscle(sIdx, muscle)) {
+              addedSecond = true;
+              topUpChanged = true;
+              break;
+            }
+          }
+        }
+        if (!addedSecond) {
+          recordLimitedVolume(muscle, templates[blockedOnlyByMaxSetsIndices[0]].label);
+        }
       }
     }
   }

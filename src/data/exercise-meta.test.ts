@@ -3,12 +3,12 @@ import { EXERCISE_META } from "./exercise-meta";
 import { EXERCISES_DATABASE } from "./exercises";
 
 describe("EXERCISE_META", () => {
-  it("setiap id di EXERCISES_DATABASE punya entri di EXERCISE_META (42/42) dan tidak ada id yatim", () => {
+  it("setiap id di EXERCISES_DATABASE punya entri di EXERCISE_META (semua) dan tidak ada id yatim", () => {
     const dbIds = EXERCISES_DATABASE.map((e) => e.id);
     const metaIds = Object.keys(EXERCISE_META);
 
-    expect(dbIds).toHaveLength(42);
-    expect(metaIds).toHaveLength(42);
+    expect(dbIds).toHaveLength(EXERCISES_DATABASE.length);
+    expect(metaIds).toHaveLength(EXERCISES_DATABASE.length);
 
     const dbIdSet = new Set(dbIds);
     const metaIdSet = new Set(metaIds);
