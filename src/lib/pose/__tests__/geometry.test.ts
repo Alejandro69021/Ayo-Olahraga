@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { angleAt, angleAt2D, angleFromVertical, pickVisibleSide } from "../geometry";
+import {
+  angleAt,
+  angleAt2D,
+  angleFromVertical,
+  angleFromVertical2D,
+  pickVisibleSide,
+} from "../geometry";
 import { LandmarkSmoother, smoothLandmark, smoothLandmarks } from "../smoothing";
 import {
   Landmark,
@@ -75,6 +81,38 @@ describe("geometry.ts", () => {
 
     const angle = angleFromVertical(top, bottom);
     expect(angle).toBeCloseTo(90, 5);
+  });
+
+  it("angleFromVertical2D: garis vertikal = 0°", () => {
+    const top: Landmark = { x: 0, y: 0, z: 0 };
+    const bottom: Landmark = { x: 0, y: 10, z: 0 };
+
+    expect(angleFromVertical2D(top, bottom)).toBeCloseTo(0, 5);
+  });
+
+  it("angleFromVertical2D: garis horizontal = 90°", () => {
+    const top: Landmark = { x: 0, y: 0, z: 0 };
+    const bottom: Landmark = { x: 10, y: 0, z: 0 };
+
+    expect(angleFromVertical2D(top, bottom)).toBeCloseTo(90, 5);
+  });
+
+  it("angleFromVertical2D: garis 45 derajat = 45°", () => {
+    const top: Landmark = { x: 0, y: 0, z: 0 };
+    const bottom: Landmark = { x: 5, y: 5, z: 0 };
+
+    expect(angleFromVertical2D(top, bottom)).toBeCloseTo(45, 5);
+  });
+
+  it("angleFromVertical2D: hasil identik walau z berbeda", () => {
+    const baseTop: Landmark = { x: 0.4, y: 0.2, z: 0 };
+    const baseBottom: Landmark = { x: 0.5, y: 0.5, z: 0 };
+    const baseline = angleFromVertical2D(baseTop, baseBottom);
+
+    const modTop: Landmark = { x: 0.4, y: 0.2, z: -0.35 };
+    const modBottom: Landmark = { x: 0.5, y: 0.5, z: 0.85 };
+
+    expect(angleFromVertical2D(modTop, modBottom)).toBe(baseline);
   });
 
   it("pickVisibleSide: memilih sisi dengan visibility lebih tinggi", () => {

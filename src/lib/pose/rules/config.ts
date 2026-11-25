@@ -5,7 +5,7 @@ import {
   RepContext,
   CheckResult,
 } from "./types";
-import { angleAt, angleAt2D, angleFromVertical } from "../geometry";
+import { angleAt, angleAt2D, angleFromVertical, angleFromVertical2D } from "../geometry";
 import {
   Landmark,
   NOSE,
@@ -168,7 +168,8 @@ export const SQUAT_DEPTH_CHECK: FormCheck = {
     // Sudut lutut minimum di fase terbawah (bottom)
     // heuristik, toleransi ±10–15°
     // Standar paralel: sudut lutut < 110°. Jika >= 110°, paha belum mencapai paralel
-    const minKneeAngle = ctx.minMetricValue;
+    // Pakai median-3 sudut mentah bila tersedia agar fase lag EMA tidak menutupi kedalaman
+    const minKneeAngle = ctx.minRawMetricValue ?? ctx.minMetricValue;
     if (minKneeAngle >= 110) {
       return {
         ok: false,
@@ -191,9 +192,9 @@ export const SQUAT_TRUNK_LEAN_CHECK: FormCheck = {
       return { ok: true, value: 0, cue: "" };
     }
 
-    // Sudut garis bahu-ke-pinggul terhadap sumbu vertikal
+    // Sudut garis bahu-ke-pinggul terhadap sumbu vertikal (2D x,y tanpa z)
     // heuristik, toleransi ±10–15°
-    const leanAngle = angleFromVertical(shoulder, hip);
+    const leanAngle = angleFromVertical2D(shoulder, hip);
 
     // Back squat memiliki toleransi kemiringan lebih besar (60°) dibanding bodyweight/goblet (45°)
     const maxLean = ctx.exerciseId === "bb-back-squat" ? 60 : 45;

@@ -10,6 +10,7 @@ export interface CheckResult {
 
 export interface PoseFrame {
   landmarks: Landmark[];
+  rawLandmarks?: Landmark[];
   worldLandmarks?: Landmark[];
   timestampMs: number;
   side: "left" | "right";
@@ -25,6 +26,7 @@ export interface RepContext {
   repStartTimeMs: number;
   descentDurationMs: number;
   minMetricValue: number;
+  minRawMetricValue?: number;
   maxMetricValue: number;
   repIndex: number;
   exerciseId: string;

@@ -428,6 +428,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
           const frame: PoseFrame | null = smoothedLandmarks
             ? {
                 landmarks: smoothedLandmarks,
+                rawLandmarks: currentLandmarks!,
                 worldLandmarks,
                 timestampMs: now,
                 side,

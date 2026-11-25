@@ -29,6 +29,8 @@ export class RepCounter {
   private repStartTimeMs: number = 0;
   private descentDurationMs: number = 0;
   private minMetricValue: number = 180;
+  private minRawMetricValue: number | undefined = undefined;
+  private rawMetricWindow: number[] = [];
   private maxMetricValue: number = 0;
   private repIndex: number = 0;
 
@@ -88,6 +90,28 @@ export class RepCounter {
     return this.updateReps(frame, ctx);
   }
 
+  private updateRawMetric(frame: PoseFrame, recordMin: boolean): void {
+    if (!frame.rawLandmarks || frame.rawLandmarks.length === 0) return;
+
+    const rawVal = this.ruleSet.counter.metric({
+      ...frame,
+      landmarks: frame.rawLandmarks,
+    });
+    this.rawMetricWindow.push(rawVal);
+    if (this.rawMetricWindow.length > 3) {
+      this.rawMetricWindow.shift();
+    }
+
+    if (recordMin && this.rawMetricWindow.length === 3) {
+      const sorted = [...this.rawMetricWindow].sort((a, b) => a - b);
+      const median = sorted[1];
+      this.minRawMetricValue =
+        this.minRawMetricValue === undefined
+          ? median
+          : Math.min(this.minRawMetricValue, median);
+    }
+  }
+
   private updateReps(frame: PoseFrame, ctx: RepContext): CounterUpdate {
     const metricVal = this.ruleSet.counter.metric(frame);
     const { upThreshold, downThreshold, minRepMs } = this.ruleSet.counter;
@@ -121,8 +145,12 @@ export class RepCounter {
           this.phase = "descending";
           this.repStartTimeMs = frame.timestampMs;
           this.minMetricValue = metricVal;
+          this.minRawMetricValue = undefined;
           this.maxMetricValue = metricVal;
           this.currentRepIssues = [...activeFrameIssues];
+          this.updateRawMetric(frame, true);
+        } else {
+          this.updateRawMetric(frame, false);
         }
         break;
 
@@ -130,6 +158,7 @@ export class RepCounter {
         if (metricVal < this.minMetricValue) {
           this.minMetricValue = metricVal;
         }
+        this.updateRawMetric(frame, true);
 
         // Ketika metrik mulai berbalik naik (naik > 2° dari titik minimum atau sudah mencapai upThreshold)
         if (metricVal > this.minMetricValue + 2 || metricVal >= upThreshold) {
@@ -246,6 +275,8 @@ export class RepCounter {
     // Reset untuk siklus repetisi berikutnya
     this.phase = "idle";
     this.minMetricValue = 180;
+    this.minRawMetricValue = undefined;
+    this.rawMetricWindow = [];
     this.maxMetricValue = 0;
     this.currentRepIssues = [];
   }
@@ -342,6 +373,9 @@ export class RepCounter {
       repStartTimeMs: this.repStartTimeMs,
       descentDurationMs: this.descentDurationMs,
       minMetricValue: this.minMetricValue,
+      ...(this.minRawMetricValue !== undefined
+        ? { minRawMetricValue: this.minRawMetricValue }
+        : {}),
       maxMetricValue: this.maxMetricValue,
       repIndex: this.repIndex,
       exerciseId: this.exerciseId,
@@ -367,6 +401,8 @@ export class RepCounter {
     this.repStartTimeMs = 0;
     this.descentDurationMs = 0;
     this.minMetricValue = 180;
+    this.minRawMetricValue = undefined;
+    this.rawMetricWindow = [];
     this.maxMetricValue = 0;
     this.repIndex = 0;
     this.currentRepIssues = [];

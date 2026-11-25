@@ -327,4 +327,178 @@ describe("RepCounter SQUAT_RULESET behavior", () => {
 
     expect(lastUpdate.repsCount).toBe(1);
   });
+
+  it("11. Z BESAR TIDAK MENEGUR: squat dengan batang tubuh tegak (kemiringan 2D 15 derajat) dan z offset 0,35 -> tidak ada squat-trunk-lean", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    const withLeanAndZ = (angleDeg: number, lean2dDeg: number, zOffset: number): PoseFrame => {
+      const f = createSquatPoseFrame(angleDeg, ts);
+      const dy = 0.3;
+      const dx = dy * Math.tan((lean2dDeg * Math.PI) / 180);
+      f.landmarks[L_HIP] = { ...f.landmarks[L_HIP], x: 0.5, y: 0.5, z: zOffset };
+      f.landmarks[L_SHOULDER] = {
+        ...f.landmarks[L_SHOULDER],
+        x: 0.5 - dx,
+        y: 0.5 - dy,
+        z: 0,
+      };
+      return f;
+    };
+
+    for (let i = 0; i < 48; i++) {
+      lastUpdate = counter.update(withLeanAndZ(STANDING_KNEE_DEG, 15, 0.35));
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    const cycleAngles = buildSmoothCycleAngles(STANDING_KNEE_DEG, 90, 60);
+    for (const angle of cycleAngles) {
+      lastUpdate = counter.update(withLeanAndZ(angle, 15, 0.35));
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).not.toContain("squat-trunk-lean");
+  });
+
+  it("12. KEMIRINGAN NYATA TETAP DITEGUR: kemiringan 2D 60 derajat -> squat-trunk-lean muncul", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    const withLean2D = (angleDeg: number, lean2dDeg: number): PoseFrame => {
+      const f = createSquatPoseFrame(angleDeg, ts);
+      const dy = 0.2;
+      const dx = dy * Math.tan((lean2dDeg * Math.PI) / 180);
+      f.landmarks[L_HIP] = { ...f.landmarks[L_HIP], x: 0.5, y: 0.5, z: 0 };
+      f.landmarks[L_SHOULDER] = {
+        ...f.landmarks[L_SHOULDER],
+        x: 0.5 - dx,
+        y: 0.5 - dy,
+        z: 0,
+      };
+      return f;
+    };
+
+    for (let i = 0; i < 48; i++) {
+      lastUpdate = counter.update(withLean2D(STANDING_KNEE_DEG, 5));
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    const cycleAngles = buildSmoothCycleAngles(STANDING_KNEE_DEG, 90, 60);
+    for (const angle of cycleAngles) {
+      const lean = angle < 130 ? 60 : 5;
+      lastUpdate = counter.update(withLean2D(angle, lean));
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).toContain("squat-trunk-lean");
+  });
+
+  it("13. DEPTH DARI MENTAH: frame landmarks (dihaluskan) bottom 118 derajat, rawLandmarks bottom 100 derajat bertahan >= 3 frame -> tidak ada squat-depth", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    const feedPair = (smoothedDeg: number, rawDeg: number) => {
+      const smoothedFrame = createSquatPoseFrame(smoothedDeg, ts);
+      const rawFrame = createSquatPoseFrame(rawDeg, ts);
+      lastUpdate = counter.update({
+        ...smoothedFrame,
+        rawLandmarks: rawFrame.landmarks,
+      });
+      ts += FRAME_INTERVAL_MS;
+    };
+
+    for (let i = 0; i < 48; i++) {
+      feedPair(STANDING_KNEE_DEG, STANDING_KNEE_DEG);
+    }
+
+    const sequence: Array<[number, number]> = [
+      [165, 160],
+      [158, 148],
+      [148, 138],
+      [142, 128],
+      [136, 118],
+      [130, 110],
+      [125, 100],
+      [121, 100],
+      [118, 100],
+      [118, 104],
+      [119, 112],
+      [122, 120],
+      [126, 128],
+      [131, 136],
+      [136, 144],
+      [141, 152],
+      [147, 158],
+      [153, 164],
+      [159, 170],
+      [165, 170],
+      [170, 170],
+    ];
+    for (const [smDeg, rDeg] of sequence) {
+      feedPair(smDeg, rDeg);
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).not.toContain("squat-depth");
+  });
+
+  it("14. LONJAKAN MENTAH TIDAK MENUTUPI KEDALAMAN: raw bottom sebenarnya 125 derajat dengan satu frame raw 90 derajat -> squat-depth tetap muncul (median-3 menolak lonjakan)", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    const feedPair = (smoothedDeg: number, rawDeg: number) => {
+      const smoothedFrame = createSquatPoseFrame(smoothedDeg, ts);
+      const rawFrame = createSquatPoseFrame(rawDeg, ts);
+      lastUpdate = counter.update({
+        ...smoothedFrame,
+        rawLandmarks: rawFrame.landmarks,
+      });
+      ts += FRAME_INTERVAL_MS;
+    };
+
+    for (let i = 0; i < 48; i++) {
+      feedPair(STANDING_KNEE_DEG, STANDING_KNEE_DEG);
+    }
+
+    const sequence: Array<[number, number]> = [
+      [165, 160],
+      [158, 148],
+      [148, 140],
+      [143, 134],
+      [138, 129],
+      [133, 126],
+      [129, 125],
+      [126, 125],
+      [125, 90],
+      [125, 125],
+      [126, 125],
+      [129, 128],
+      [134, 134],
+      [140, 140],
+      [146, 146],
+      [152, 152],
+      [156, 155],
+      [159, 158],
+      [163, 165],
+      [168, 170],
+      [170, 170],
+      [170, 170],
+    ];
+    for (const [smDeg, rDeg] of sequence) {
+      feedPair(smDeg, rDeg);
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).toContain("squat-depth");
+  });
 });

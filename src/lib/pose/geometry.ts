@@ -98,6 +98,16 @@ export function angleFromVertical(top: Landmark, bottom: Landmark): number {
 }
 
 /**
+ * Menghitung sudut kemiringan 2D (x, y) garis (dari top ke bottom) terhadap sumbu vertikal, mengabaikan sumbu z.
+ */
+export function angleFromVertical2D(top: Landmark, bottom: Landmark): number {
+  return angleFromVertical(
+    { x: top.x, y: top.y, z: 0 },
+    { x: bottom.x, y: bottom.y, z: 0 }
+  );
+}
+
+/**
  * Menentukan sisi tubuh mana ("left" | "right") yang paling terlihat jelas menghadap kamera
  * berdasarkan rata-rata nilai visibility dari 4 sendi utama: bahu, pinggul, lutut, dan pergelangan kaki.
  *
