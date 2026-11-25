@@ -36,6 +36,7 @@ import {
   buildSessionTrackerHref,
   formatPlannedTarget,
 } from "@/components/program/session-link";
+import { NutritionNote } from "@/components/program/NutritionNote";
 
 const EXERCISE_BY_ID = new Map<string, ExerciseDetail>(
   EXERCISES_DATABASE.map((exercise) => [exercise.id, exercise])
@@ -385,6 +386,8 @@ export const ProgramView: React.FC = () => {
           ))}
         </div>
       )}
+
+      <NutritionNote goal={plan.goal} />
     </div>
   );
 };
