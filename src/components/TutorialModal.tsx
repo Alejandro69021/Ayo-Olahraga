@@ -271,7 +271,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                     </p>
                   </div>
 
-                  {exercise.researchCitation && (
+                  {exercise.researchCitation?.verified === true && (
                     <div className="p-3 rounded-lg bg-blue-950/30 border border-blue-800/40">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5 text-blue-400 font-bold text-[11px]">

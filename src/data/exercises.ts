@@ -48,6 +48,7 @@ export interface ExerciseDetail {
     journal: string;
     study: string;
     findings: string;
+    verified?: boolean;
   };
   tutorial: {
     setup: string[];
@@ -77,9 +78,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/OZYybDMR2i4/hqdefault.jpg",
     summary: "Latihan kompaun utama untuk membangun ketebalan serat dada, triceps, dan deltoid anterior dengan stabilisasi barbel bilateral.",
     researchCitation: {
-      journal: "Journal of Strength & Conditioning Research (JSCR)",
-      study: "Schick et al. (2010) & Trebs et al. (2010)",
-      findings: "Aktivasi EMG tertinggi pada Pectoralis Major (sternocostal) dan Anterior Deltoid. Barbel bebas memicu stabilisasi 3D jauh lebih tinggi dibanding Smith machine."
+      journal: "Journal of Strength & Conditioning Research",
+      study: "Schick et al. (2010)",
+      findings: "Membandingkan Smith machine dan bench press barbel bebas pada 70% dan 90% 1RM. Penulis menyarankan barbel bebas karena berpotensi memberi perkembangan otot tubuh atas lebih besar.",
+      verified: true
     },
     
     tutorial: {
@@ -166,9 +168,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/phVtqawIgbk/hqdefault.jpg",
     summary: "Latihan penebal otot punggung bebas untuk merangsang latissimus dorsi, rhomboids, dan fleksor siku tanpa bantuan rel mesin.",
     researchCitation: {
-      journal: "Journal of Strength & Conditioning Research (JSCR)",
-      study: "Fenwick, Brown, & McGill (2009)",
-      findings: "Memicu aktivasi simetris tertinggi pada Latissimus Dorsi dan Erector Spinae di seluruh tulang belakang lumbal dibanding variasi row mesin."
+      journal: "Journal of Strength & Conditioning Research",
+      study: "Fenwick, Brown & McGill (2009)",
+      findings: "Bent-over row menghasilkan aktivasi besar yang simetris dari punggung atas hingga bawah, namun juga beban lumbar terbesar dibanding inverted row dan cable row satu lengan.",
+      verified: true
     },
     
     tutorial: {
@@ -253,9 +256,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/uPWycTcl05U/hqdefault.jpg",
     summary: "Latihan kekuatan total tubuh terhebat yang melatih seluruh rantai posterior tubuh dari tumit hingga leher.",
     researchCitation: {
-      journal: "Medicine & Science in Sports & Exercise (MSSE)",
-      study: "Escamilla et al. (2002) & Cholewa et al. (2019)",
-      findings: "Rekrutmen rantai posterior maksimal: Biceps Femoris (Hamstrings), Gluteus Maximus, dan spinal erector via mekanisme hip hinge beban kompaun tinggi."
+      journal: "Medicine & Science in Sports & Exercise",
+      study: "Escamilla et al. (2002)",
+      findings: "Studi EMG deadlift sumo vs konvensional: ko-kontraksi sedang hingga tinggi dari quadriceps, hamstring, dan gastrocnemius.",
+      verified: true
     },
     
     tutorial: {
@@ -696,9 +700,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/dluhsF6hP2w/hqdefault.jpg",
     summary: "Variasi push-up lantai intensif yang memaksimalkan isolasi beban tubuh pada ketiga kepala otot triceps dan dada bagian dalam.",
     researchCitation: {
-      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      journal: "Journal of Strength & Conditioning Research",
       study: "Cogley et al. (2005)",
-      findings: "Posisi tangan sempit berbentuk segitiga menghasilkan aktivasi EMG tertinggi yang signifikan secara statistik pada Triceps Brachii dan dada tengah dibanding push-up biasa."
+      findings: "Posisi tangan sempit memberi aktivasi pectoralis major dan triceps brachii lebih besar dibanding posisi tangan lebar.",
+      verified: true
     },
     
     tutorial: {
@@ -870,9 +875,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/ZPG8OsHKXLw/hqdefault.jpg",
     summary: "Raja latihan tarik calisthenics untuk melebarkan sayap punggung dan melatih kekuatan cengkeraman tangan pada palang pull-up.",
     researchCitation: {
-      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      journal: "Journal of Strength & Conditioning Research",
       study: "Youdas et al. (2010)",
-      findings: "Pegangan pronasi lebar (overhand) memaksimalkan rekrutmen Latissimus Dorsi dan Lower Trapezius dibanding chin-up yang lebih condong ke bicep."
+      findings: "Latissimus dorsi sangat aktif (117-130% MVIC). Chin-up memberi aktivasi biceps dan pectoralis major lebih tinggi dibanding pull-up.",
+      verified: true
     },
     
     tutorial: {
@@ -913,9 +919,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/qVsbO098ueU/hqdefault.jpg",
     summary: "Latihan core gantung calisthenics yang sangat efektif mengisolasi otot perut bawah dan fleksor panggul tanpa membebani leher.",
     researchCitation: {
-      journal: "Physical Therapy Journal",
+      journal: "Physical Therapy",
       study: "Escamilla et al. (2006)",
-      findings: "Menggantung di palang dengan fleksi lutut/panggul memicu aktivasi EMG tertinggi pada Rectus Abdominis bawah dan Obliques eksternal dibandingkan crunch lantai."
+      findings: "Hanging knee-up dengan strap termasuk latihan dengan aktivasi external oblique tertinggi dibanding crunch dan sit-up tradisional.",
+      verified: true
     },
     
     tutorial: {
@@ -1004,9 +1011,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/2gXtvqLa_T8/hqdefault.jpg",
     summary: "Latihan daya ledak pinggul (hip hinge) yang membakar kalori tinggi sekaligus memperkuat postur rantai posterior tubuh murni dengan kettlebell.",
     researchCitation: {
-      journal: "Journal of Strength & Conditioning Research (JSCR)",
-      study: "McGill & Marshall (2012) & Lake & Lauder (2012)",
-      findings: "Pola pulse-relaxation menghasilkan aktivasi hingga 76% MVIC Gluteus Maximus dan 80% Hamstrings, membangun daya ledak posterior chain tanpa kompresi spinal statis."
+      journal: "Journal of Strength & Conditioning Research",
+      study: "McGill & Marshall (2012)",
+      findings: "Swing kettlebell 16 kg memicu sekitar 50% MVC ekstensor punggung bawah dan 80% MVC gluteal, dengan kompresi punggung bawah sekitar 3.200 N.",
+      verified: true
     },
     
     tutorial: {
@@ -1312,9 +1320,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/N_olWJJm1Zo/hqdefault.jpg",
     summary: "Squat dengan menahan plate lurus di atas kepala untuk menguji fleksibilitas panggul, kekuatan paha, dan stabilitas scapula.",
     researchCitation: {
-      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      journal: "Journal of Strength & Conditioning Research",
       study: "Aspe & Swinton (2014)",
-      findings: "Menahan beban plate overhead menuntut aktivasi simultan Upper Trapezius, Deltoids, dan otot inti, sembari melatih ekstensi paha (Quadriceps) dalam postur toraks terbuka."
+      findings: "Overhead squat tidak terbukti memberi stimulus trunk jauh lebih besar dibanding back squat; back squat lebih aktif pada punggung dan otot tungkai.",
+      verified: true
     },
     
     tutorial: {
@@ -1397,9 +1406,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/g5u75sgpn04/hqdefault.jpg",
     summary: "Gerakan hip hinge murni untuk melatih peregangan eksentrik maksimal pada hamstring dan pembentukan otot bokong.",
     researchCitation: {
-      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      journal: "Journal of Strength & Conditioning Research",
       study: "McAllister et al. (2014)",
-      findings: "RDL menghasilkan aktivasi EMG eksentrik tertinggi pada biceps femoris dan semitendinosus dengan beban mekanik konstan."
+      findings: "Semitendinosus lebih aktif daripada biceps femoris pada semua latihan, dan aktivitas hamstring maksimal pada RDL dan glute-ham raise.",
+      verified: true
     },
     tutorial: {
       setup: [
@@ -1523,9 +1533,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/2C-uNgKwPLE/hqdefault.jpg",
     summary: "Latihan kaki unilateral intensif untuk mengoreksi ketimpangan kekuatan kaki dan membangun hipertrofi glutes dan quads.",
     researchCitation: {
-      journal: "Journal of Strength & Conditioning Research (JSCR)",
+      journal: "International Journal of Exercise Science",
       study: "DeForest et al. (2014)",
-      findings: "Bulgarian split squat menghasilkan aktivasi gluteus medius dan hamstring lebih tinggi dengan beban lumbar spine yang jauh lebih rendah daripada back squat."
+      findings: "Rear-leg elevated split squat memberi aktivasi biceps femoris lebih tinggi dibanding split squat biasa.",
+      verified: true
     },
     tutorial: {
       setup: [
@@ -1565,9 +1576,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/zC3nLlEvin4/hqdefault.jpg",
     summary: "Curl pegangan netral untuk menebalkan otot brachialis dan otot lengan bawah (brachioradialis).",
     researchCitation: {
-      journal: "Journal of Electromyography and Kinesiology",
+      journal: "Frontiers in Physiology",
       study: "Kleiber et al. (2015)",
-      findings: "Grip netral (telapak tangan saling berhadapan) memaksimalkan rekrutmen otot brachioradialis dan brachialis yang mendorong bicep tampak lebih tinggi."
+      findings: "Kontribusi brachioradialis berbeda nyata pada posisi tangan pronasi dibanding supinasi dan netral, sementara aktivitas biceps tidak berubah.",
+      verified: true
     },
     tutorial: {
       setup: [
@@ -1733,9 +1745,10 @@ const BASE_EXERCISES: ExerciseDetail[] = [
     fullVideoImageUrl: "https://img.youtube.com/vi/CzE3AlD0RXk/hqdefault.jpg",
     summary: "Latihan betis calisthenics unilateral untuk melatih daya lenting tendon achilles dan kekuatan betis.",
     researchCitation: {
-      journal: "Journal of Applied Biomechanics",
+      journal: "Journal of Strength & Conditioning Research",
       study: "Riemann et al. (2011)",
-      findings: "Standing calf raise dengan lutut lurus memaksimalkan rekrutmen caput mediale & laterale otot gastrocnemius."
+      findings: "Aktivasi gastrocnemius medial dan lateral berbeda pada tiga posisi kaki saat heel raise.",
+      verified: true
     },
     tutorial: {
       setup: [
