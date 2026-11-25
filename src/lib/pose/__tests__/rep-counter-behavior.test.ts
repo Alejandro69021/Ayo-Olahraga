@@ -235,4 +235,50 @@ describe("RepCounter SQUAT_RULESET behavior", () => {
     expect(lastUpdate.repsCount).toBe(1);
     expect(triggeredCheckIds).toContain("squat-descent-speed");
   });
+
+  it("7. Z BERISIK: squat tetap terhitung tepat 5 dan berdiri tetap 0 rep walau z landmark diberi offset acak besar (+-0,3)", () => {
+    const withNoisyZ = (frame: PoseFrame, rand: () => number): PoseFrame => {
+      const landmarks = frame.landmarks.map((lm, idx) =>
+        [L_SHOULDER, L_HIP, L_KNEE, L_ANKLE, L_HEEL].includes(idx)
+          ? { ...lm, z: lm.z + (rand() * 2 - 1) * 0.3 }
+          : lm
+      );
+      return { ...frame, landmarks };
+    };
+
+    // 1. Berdiri dengan offset z +-0.3 -> tetap 0 rep
+    const standCounter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    const randStand = createPrng(701);
+    let standUpdate!: CounterUpdate;
+    for (let i = 0; i < 600; i++) {
+      const ts = START_TS_MS + i * FRAME_INTERVAL_MS;
+      standUpdate = standCounter.update(
+        withNoisyZ(createSquatPoseFrame(STANDING_KNEE_DEG, ts), randStand)
+      );
+    }
+    expect(standUpdate.repsCount).toBe(0);
+
+    // 2. 5 siklus squat penuh dengan offset z +-0.3 -> tepat 5 rep
+    const squatCounter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    const randSquat = createPrng(702);
+    let ts = START_TS_MS;
+    let squatUpdate!: CounterUpdate;
+    for (let i = 0; i < 48; i++) {
+      squatUpdate = squatCounter.update(
+        withNoisyZ(createSquatPoseFrame(STANDING_KNEE_DEG, ts), randSquat)
+      );
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    const cycleAngles = buildSmoothCycleAngles(STANDING_KNEE_DEG, 90, 60);
+    for (let rep = 0; rep < 5; rep++) {
+      for (const angle of cycleAngles) {
+        squatUpdate = squatCounter.update(
+          withNoisyZ(createSquatPoseFrame(angle, ts), randSquat)
+        );
+        ts += FRAME_INTERVAL_MS;
+      }
+    }
+    expect(squatUpdate.repsCount).toBe(5);
+  });
 });

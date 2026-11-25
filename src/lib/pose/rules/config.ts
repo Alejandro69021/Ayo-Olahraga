@@ -5,7 +5,7 @@ import {
   RepContext,
   CheckResult,
 } from "./types";
-import { angleAt, angleFromVertical } from "../geometry";
+import { angleAt, angleAt2D, angleFromVertical } from "../geometry";
 import {
   Landmark,
   NOSE,
@@ -277,10 +277,11 @@ export const SQUAT_RULESET: RuleSet = {
   mode: "reps",
   counter: {
     // Metrik utama: sudut lutut (pinggul-lutut-pergelangan kaki)
+    // 2D (x,y): z ter-normalisasi MediaPipe tidak andal pada kamera serong (lihat diagnosis dvids-squat 14 Nov).
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.hip || !joints.knee || !joints.ankle) return 180;
-      return angleAt(joints.hip, joints.knee, joints.ankle);
+      return angleAt2D(joints.hip, joints.knee, joints.ankle);
     },
     upThreshold: 160,
     downThreshold: 150,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { angleAt, angleFromVertical, pickVisibleSide } from "../geometry";
+import { angleAt, angleAt2D, angleFromVertical, pickVisibleSide } from "../geometry";
 import { LandmarkSmoother, smoothLandmark, smoothLandmarks } from "../smoothing";
 import {
   Landmark,
@@ -30,6 +30,35 @@ describe("geometry.ts", () => {
 
     const angle = angleAt(a, b, c);
     expect(angle).toBeCloseTo(180, 5);
+  });
+
+  it("angleAt2D: (0,1)-(0,0)-(1,0) = 90°", () => {
+    const a: Landmark = { x: 0, y: 1, z: 0 };
+    const b: Landmark = { x: 0, y: 0, z: 0 };
+    const c: Landmark = { x: 1, y: 0, z: 0 };
+
+    expect(angleAt2D(a, b, c)).toBeCloseTo(90, 5);
+  });
+
+  it("angleAt2D: tiga titik segaris = 180°", () => {
+    const a: Landmark = { x: 0, y: 1, z: 0 };
+    const b: Landmark = { x: 0, y: 0, z: 0 };
+    const c: Landmark = { x: 0, y: -1, z: 0 };
+
+    expect(angleAt2D(a, b, c)).toBeCloseTo(180, 5);
+  });
+
+  it("angleAt2D: hasil identik walau koordinat z diubah sembarang", () => {
+    const baseA: Landmark = { x: 0.4, y: 0.2, z: 0 };
+    const baseB: Landmark = { x: 0.5, y: 0.5, z: 0 };
+    const baseC: Landmark = { x: 0.65, y: 0.8, z: 0 };
+    const baseline = angleAt2D(baseA, baseB, baseC);
+
+    const modA: Landmark = { x: 0.4, y: 0.2, z: -0.75 };
+    const modB: Landmark = { x: 0.5, y: 0.5, z: 1.4 };
+    const modC: Landmark = { x: 0.65, y: 0.8, z: -9.2 };
+
+    expect(angleAt2D(modA, modB, modC)).toBe(baseline);
   });
 
   it("angleFromVertical: garis vertikal = 0° dari vertikal", () => {

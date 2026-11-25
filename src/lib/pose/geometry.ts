@@ -62,6 +62,17 @@ export function angleAt(a: Landmark, b: Landmark, c: Landmark): number {
 }
 
 /**
+ * Menghitung sudut sendi 2D (x, y) di titik b dalam derajat (0°–180°), mengabaikan sumbu z.
+ */
+export function angleAt2D(a: Landmark, b: Landmark, c: Landmark): number {
+  return angleAt(
+    { x: a.x, y: a.y, z: 0 },
+    { x: b.x, y: b.y, z: 0 },
+    { x: c.x, y: c.y, z: 0 }
+  );
+}
+
+/**
  * Menghitung sudut kemiringan garis (dari top ke bottom) terhadap sumbu vertikal.
  * - Garis lurus vertikal sempurna = 0°
  * - Garis horizontal sempurna = 90°
