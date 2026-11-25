@@ -35,6 +35,60 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+const serviceWorkerScript =
+  process.env.NODE_ENV === "production"
+    ? `
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function(err) {
+            console.error('ServiceWorker registration failed: ', err);
+          });
+        });
+      }
+    `
+    : `
+      window.addEventListener('load', function() {
+        if ('serviceWorker' in navigator) {
+          try {
+            navigator.serviceWorker.getRegistrations()
+              .then(function(registrations) {
+                return Promise.all(
+                  registrations.map(function(reg) {
+                    return reg.unregister();
+                  })
+                );
+              })
+              .catch(function(err) {
+                console.warn('ServiceWorker cleanup failed: ', err);
+              });
+          } catch (err) {
+            console.warn('ServiceWorker cleanup failed: ', err);
+          }
+        }
+        if ('caches' in window) {
+          try {
+            caches.keys()
+              .then(function(keys) {
+                return Promise.all(
+                  keys
+                    .filter(function(key) {
+                      return key.startsWith('ayo-olahraga');
+                    })
+                    .map(function(key) {
+                      return caches.delete(key);
+                    })
+                );
+              })
+              .catch(function(err) {
+                console.warn('Cache cleanup failed: ', err);
+              });
+          } catch (err) {
+            console.warn('Cache cleanup failed: ', err);
+          }
+        }
+      });
+    `;
+
 export default function RootLayout({
   children,
 }: {
@@ -52,15 +106,7 @@ export default function RootLayout({
         {children}
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                    console.error('ServiceWorker registration failed: ', err);
-                  });
-                });
-              }
-            `,
+            __html: serviceWorkerScript,
           }}
         />
       </body>
