@@ -244,4 +244,57 @@ describe("program/generator", () => {
       }
     }
   });
+
+  it('l. untuk profil otot/Menengah/4 hari/60 menit/["barbell","dumbbell"]: minggu non-deload tanpa sets < minSetsPerExercise', () => {
+    const plan = generatePlan(makeProfile());
+    for (const week of plan.weeks) {
+      if (week.isDeload) continue;
+      for (const sess of week.sessions) {
+        for (const planned of sess.exercises) {
+          expect(
+            planned.sets,
+            `week ${week.weekIndex} ${sess.label} ${planned.exerciseId}`
+          ).toBeGreaterThanOrEqual(PROGRAM_CONFIG.minSetsPerExercise);
+        }
+      }
+    }
+  });
+
+  it("m. untuk profil yang sama: setiap sesi Lower punya minimal 2 gerakan dengan alat selain bodyweight", () => {
+    const plan = generatePlan(makeProfile());
+    for (const week of plan.weeks) {
+      for (const sess of week.sessions) {
+        if (!sess.label.toLowerCase().includes("lower")) continue;
+        const nonBodyweight = sess.exercises.filter((planned) => {
+          const ex = exerciseMap.get(planned.exerciseId)!;
+          return ex.equipment !== "bodyweight";
+        });
+        expect(
+          nonBodyweight.length,
+          `week ${week.weekIndex} ${sess.label}`
+        ).toBeGreaterThanOrEqual(2);
+      }
+    }
+  });
+
+  it('n. untuk profil Pemula dengan alat ["bodyweight"]: hasil tanpa error dan tanpa 1 set di minggu non-deload', () => {
+    const plan = generatePlan(
+      makeProfile({
+        level: "Pemula",
+        equipment: ["bodyweight"],
+      })
+    );
+    expect(plan.weeks).toHaveLength(PROGRAM_CONFIG.mesocycleWeeks);
+    for (const week of plan.weeks) {
+      if (week.isDeload) continue;
+      for (const sess of week.sessions) {
+        for (const planned of sess.exercises) {
+          expect(
+            planned.sets,
+            `week ${week.weekIndex} ${sess.label} ${planned.exerciseId}`
+          ).toBeGreaterThanOrEqual(PROGRAM_CONFIG.minSetsPerExercise);
+        }
+      }
+    }
+  });
 });

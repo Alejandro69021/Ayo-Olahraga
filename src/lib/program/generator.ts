@@ -139,6 +139,66 @@ function sortSessionExercises(exercises: PlannedExercise[]): PlannedExercise[] {
   });
 }
 
+/**
+ * Pengurutan kandidat gerakan deterministik per otot:
+ * (1) role "main" sebelum non-main (aksesori/skill/finisher)
+ * (2) belum terpakai di sesi lain dalam minggu ini (variasi sesi A vs B)
+ * (3) untuk Menengah/Lanjutan: alat selain "bodyweight" milik pengguna sebelum "bodyweight"; Pemula: tanpa preferensi alat
+ * (4) bila goal "kekuatan": utamakan strengthFriendly
+ * (5) skillDemand lebih rendah dulu
+ * (6) id sebagai pemutus terakhir
+ */
+function pickCandidateForMuscle(
+  pool: ExerciseDetail[],
+  profile: UserProfile,
+  usageCount: Map<string, number>
+): ExerciseDetail {
+  const ownedExternal = new Set<EquipmentId>(
+    profile.equipment.filter((eq) => eq !== "bodyweight")
+  );
+  const preferExternal = profile.level !== "Pemula";
+  const preferStrength = PROGRAM_CONFIG.goals[profile.goal].preferStrengthFriendly;
+
+  const sorted = [...pool].sort((a, b) => {
+    const metaA = EXERCISE_META[a.id];
+    const metaB = EXERCISE_META[b.id];
+
+    // (1) role "main" sebelum non-main
+    const mainA = metaA.role === "main" ? 0 : 1;
+    const mainB = metaB.role === "main" ? 0 : 1;
+    if (mainA !== mainB) return mainA - mainB;
+
+    // Variasi antar sesi A & B dalam satu minggu
+    const useA = usageCount.get(a.id) ?? 0;
+    const useB = usageCount.get(b.id) ?? 0;
+    if (useA !== useB) return useA - useB;
+
+    // (2) Untuk Menengah/Lanjutan, utamakan alat selain "bodyweight" yang dimiliki pengguna
+    if (preferExternal) {
+      const extA = ownedExternal.has(a.equipment) ? 0 : 1;
+      const extB = ownedExternal.has(b.equipment) ? 0 : 1;
+      if (extA !== extB) return extA - extB;
+    }
+
+    // Prioritaskan strengthFriendly untuk goal kekuatan
+    if (preferStrength) {
+      const strA = metaA.strengthFriendly ? 0 : 1;
+      const strB = metaB.strengthFriendly ? 0 : 1;
+      if (strA !== strB) return strA - strB;
+    }
+
+    // (3) skillDemand lebih rendah dulu
+    if (metaA.skillDemand !== metaB.skillDemand) {
+      return metaA.skillDemand - metaB.skillDemand;
+    }
+
+    // (4) id sebagai pemutus terakhir
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+
+  return sorted[0];
+}
+
 function buildDeterministicPlanId(profile: UserProfile): string {
   const signature = [
     profile.goal,
@@ -182,12 +242,9 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
     return true;
   });
 
-  // Hitung frekuensi otot pada templat
-  const muscleSessionTotal = createZeroMuscleMap();
   const templateMusclesSet = new Set<MuscleKey>();
   for (const tpl of templates) {
     for (const m of tpl.muscles) {
-      muscleSessionTotal[m] += 1;
       templateMusclesSet.add(m);
     }
   }
@@ -200,7 +257,6 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
 
   const weeklyEffective = createZeroMuscleMap();
   const sessionEffectiveList = templates.map(() => createZeroMuscleMap());
-  const muscleSessionSeen = createZeroMuscleMap();
   const usageCount = new Map<string, number>();
 
   const canApplySets = (
@@ -234,153 +290,243 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
     }
   };
 
-  // 3. Bangun sesi Minggu 1 (penuhi target, hormati maxSets & cap, lalu pangkas durasi)
+  // Inisialisasi sesi minggu 1 dalam 2 fase agar gerakan utama tidak tergeser aksesori
   const week1Rir = getRirForWeek(profile, 1, false);
-  const week1SessionsRaw: Array<{
-    label: string;
-    exercises: PlannedExercise[];
-    templateMuscleOrder: readonly MuscleKey[];
-  }> = [];
+  const minSets = PROGRAM_CONFIG.minSetsPerExercise;
+  const sessionPickedExercises: PlannedExercise[][] = templates.map(() => []);
+  const pickedInSessionSet: Set<string>[] = templates.map(() => new Set());
+  const sessionSlotDone: Set<MuscleKey>[] = templates.map(() => new Set());
 
-  templates.forEach((tpl, sessionIdx) => {
-    const sessionEffective = sessionEffectiveList[sessionIdx];
-    const pickedExercises: PlannedExercise[] = [];
-    const pickedInThisSession = new Set<string>();
+  const tryAssignSlot = (sIdx: number, muscle: MuscleKey, requireMainRole: boolean) => {
+    if (sessionSlotDone[sIdx].has(muscle)) return;
 
+    const pool = candidates.filter(
+      (ex) => ex.primaryMuscle === muscle && !pickedInSessionSet[sIdx].has(ex.id)
+    );
+    if (pool.length === 0) return;
+
+    const hasMain = pool.some((ex) => EXERCISE_META[ex.id].role === "main");
+    if (requireMainRole && !hasMain) return;
+
+    const chosen = pickCandidateForMuscle(pool, profile, usageCount);
+    sessionSlotDone[sIdx].add(muscle);
+
+    // Tetapkan set awal sebesar minSetsPerExercise bila muat di batas sesi & cap
+    if (!canApplySets(chosen, sessionEffectiveList[sIdx], minSets)) {
+      return;
+    }
+    applySets(chosen, sessionEffectiveList[sIdx], minSets);
+    pickedInSessionSet[sIdx].add(chosen.id);
+    usageCount.set(chosen.id, (usageCount.get(chosen.id) ?? 0) + 1);
+    sessionPickedExercises[sIdx].push(
+      buildPlannedExercise(chosen, minSets, profile, week1Rir)
+    );
+  };
+
+  // Pass 1a: pilih semua otot yang punya gerakan role "main" di setiap sesi
+  templates.forEach((tpl, sIdx) => {
     for (const muscle of tpl.muscles) {
-      muscleSessionSeen[muscle] += 1;
+      tryAssignSlot(sIdx, muscle, true);
+    }
+  });
 
-      const musclePool = candidates.filter(
-        (ex) => ex.primaryMuscle === muscle && !pickedInThisSession.has(ex.id)
-      );
-      if (musclePool.length === 0) continue;
+  // Pass 1b: pilih sisa otot (role non-main) di setiap sesi
+  templates.forEach((tpl, sIdx) => {
+    for (const muscle of tpl.muscles) {
+      tryAssignSlot(sIdx, muscle, false);
+    }
+  });
 
-      const mainPool = musclePool.filter(
-        (ex) => EXERCISE_META[ex.id].role === "main"
-      );
-      const selectionPool = mainPool.length > 0 ? mainPool : musclePool;
+  // Pass 2: tambah set menuju week1Target (prioritas otot priorityMuscles lebih dulu)
+  const orderedMusclesForTopUp: MuscleKey[] = [
+    ...profile.priorityMuscles,
+    ...ALL_MUSCLES.filter((m) => !profile.priorityMuscles.includes(m)),
+  ];
 
-      const preferStrength =
-        PROGRAM_CONFIG.goals[profile.goal].preferStrengthFriendly;
+  let topUpChanged = true;
+  while (topUpChanged) {
+    topUpChanged = false;
+    for (const muscle of orderedMusclesForTopUp) {
+      if (weeklyEffective[muscle] >= week1Target[muscle]) continue;
 
-      const sortedPool = [...selectionPool].sort((a, b) => {
-        const useA = usageCount.get(a.id) ?? 0;
-        const useB = usageCount.get(b.id) ?? 0;
-        if (useA !== useB) return useA - useB;
+      let bestTarget: { sIdx: number; eIdx: number } | null = null;
+      let lowestSets = Infinity;
 
-        if (preferStrength) {
-          const strA = EXERCISE_META[a.id].strengthFriendly ? 0 : 1;
-          const strB = EXERCISE_META[b.id].strengthFriendly ? 0 : 1;
-          if (strA !== strB) return strA - strB;
-        }
+      sessionPickedExercises.forEach((exercises, sIdx) => {
+        exercises.forEach((planned, eIdx) => {
+          const ex = exerciseById.get(planned.exerciseId);
+          if (!ex || ex.primaryMuscle !== muscle) return;
 
-        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+          const meta = EXERCISE_META[planned.exerciseId];
+          if (
+            estimateSessionMinutes(exercises) +
+              PROGRAM_CONFIG.minutesPerSet[meta.role] >
+            profile.sessionMinutes
+          ) {
+            return;
+          }
+
+          if (
+            canApplySets(ex, sessionEffectiveList[sIdx], 1) &&
+            planned.sets < lowestSets
+          ) {
+            lowestSets = planned.sets;
+            bestTarget = { sIdx, eIdx };
+          }
+        });
       });
 
-      const chosen = sortedPool[0];
-
-      const remSessions = Math.max(
-        1,
-        muscleSessionTotal[muscle] - (muscleSessionSeen[muscle] - 1)
-      );
-      const remTarget = Math.max(0, week1Target[muscle] - weeklyEffective[muscle]);
-      const desiredSets = Math.max(1, Math.round(remTarget / remSessions));
-
-      let assignedSets = 0;
-      for (let s = 1; s <= desiredSets; s++) {
-        if (canApplySets(chosen, sessionEffective, 1)) {
-          applySets(chosen, sessionEffective, 1);
-          assignedSets += 1;
-        } else {
-          break;
-        }
-      }
-
-      if (assignedSets > 0) {
-        pickedInThisSession.add(chosen.id);
-        usageCount.set(chosen.id, (usageCount.get(chosen.id) ?? 0) + 1);
-        pickedExercises.push(buildPlannedExercise(chosen, assignedSets, profile, week1Rir));
+      if (bestTarget !== null) {
+        const target = bestTarget as { sIdx: number; eIdx: number };
+        const planned = sessionPickedExercises[target.sIdx][target.eIdx];
+        const ex = exerciseById.get(planned.exerciseId)!;
+        planned.sets += 1;
+        applySets(ex, sessionEffectiveList[target.sIdx], 1);
+        topUpChanged = true;
       }
     }
+  }
 
-    // Langkah 5: Pangkas gerakan aksesori bila estimasi menit melebihi sessionMinutes
+  // Langkah 5 & Masalah 1: pangkas durasi berlebih & pastikan non-deload >= minSetsPerExercise via urutan (a), (b), (c)
+  const enforceSessionConstraints = (
+    exercises: PlannedExercise[],
+    sessionEffective: Record<MuscleKey, number>
+  ) => {
     while (
-      pickedExercises.length > 0 &&
-      estimateSessionMinutes(pickedExercises) > profile.sessionMinutes
+      exercises.length > 0 &&
+      estimateSessionMinutes(exercises) > profile.sessionMinutes
     ) {
-      // Cari non-main terakhir untuk dipangkas
       let trimIdx = -1;
-      for (let i = pickedExercises.length - 1; i >= 0; i--) {
-        if (EXERCISE_META[pickedExercises[i].exerciseId].role !== "main") {
+      for (let i = exercises.length - 1; i >= 0; i--) {
+        if (EXERCISE_META[exercises[i].exerciseId].role !== "main") {
           trimIdx = i;
           break;
         }
       }
 
       if (trimIdx !== -1) {
-        const removed = pickedExercises.splice(trimIdx, 1)[0];
+        const removed = exercises.splice(trimIdx, 1)[0];
         const ex = exerciseById.get(removed.exerciseId);
         if (ex) applySets(ex, sessionEffective, -removed.sets);
         continue;
       }
 
-      // Semua tersisa adalah main: kurangi set dari yang terbanyak (tetap > 1 dulu)
       let maxSetsIdx = -1;
-      let maxSetsVal = 1;
-      for (let i = pickedExercises.length - 1; i >= 0; i--) {
-        if (pickedExercises[i].sets > maxSetsVal) {
-          maxSetsVal = pickedExercises[i].sets;
+      let maxSetsVal: number = minSets;
+      for (let i = exercises.length - 1; i >= 0; i--) {
+        if (exercises[i].sets > maxSetsVal) {
+          maxSetsVal = exercises[i].sets;
           maxSetsIdx = i;
         }
       }
 
       if (maxSetsIdx !== -1) {
-        pickedExercises[maxSetsIdx].sets -= 1;
-        const ex = exerciseById.get(pickedExercises[maxSetsIdx].exerciseId);
+        exercises[maxSetsIdx].sets -= 1;
+        const ex = exerciseById.get(exercises[maxSetsIdx].exerciseId);
         if (ex) applySets(ex, sessionEffective, -1);
       } else {
-        // Semua sudah 1 set tetapi masih melebihi sessionMinutes: pangkas yang terakhir
-        const removed = pickedExercises.pop()!;
+        const removed = exercises.pop()!;
         const ex = exerciseById.get(removed.exerciseId);
         if (ex) applySets(ex, sessionEffective, -removed.sets);
       }
     }
 
-    week1SessionsRaw.push({
+    // Pastikan tidak ada gerakan dengan set < minSetsPerExercise melalui urutan (a), (b), (c)
+    let idx = 0;
+    while (idx < exercises.length) {
+      const current = exercises[idx];
+      if (current.sets >= minSets) {
+        idx += 1;
+        continue;
+      }
+
+      const currentEx = exerciseById.get(current.exerciseId);
+      if (!currentEx) {
+        exercises.splice(idx, 1);
+        continue;
+      }
+
+      // (a) Gabungkan sisa setnya ke gerakan lain di sesi yang sama untuk otot yang sama
+      let merged = false;
+      for (let j = 0; j < exercises.length; j++) {
+        if (j === idx) continue;
+        const other = exercises[j];
+        const otherEx = exerciseById.get(other.exerciseId);
+        if (!otherEx || otherEx.primaryMuscle !== currentEx.primaryMuscle) continue;
+
+        const currentRole = EXERCISE_META[current.exerciseId].role;
+        const otherRole = EXERCISE_META[other.exerciseId].role;
+        const minuteDelta =
+          current.sets *
+          (PROGRAM_CONFIG.minutesPerSet[otherRole] -
+            PROGRAM_CONFIG.minutesPerSet[currentRole]);
+
+        applySets(currentEx, sessionEffective, -current.sets);
+        const fitsLimits =
+          canApplySets(otherEx, sessionEffective, current.sets) &&
+          estimateSessionMinutes(exercises) + minuteDelta <= profile.sessionMinutes;
+
+        if (fitsLimits) {
+          applySets(otherEx, sessionEffective, current.sets);
+          other.sets += current.sets;
+          exercises.splice(idx, 1);
+          merged = true;
+          break;
+        } else {
+          applySets(currentEx, sessionEffective, current.sets);
+        }
+      }
+      if (merged) continue;
+
+      // (b) Naikkan jadi minimum bila masih muat di sessionMinutes, cap, & sessionMax
+      const needed = minSets - current.sets;
+      const currentRole = EXERCISE_META[current.exerciseId].role;
+      const addedMinutes = needed * PROGRAM_CONFIG.minutesPerSet[currentRole];
+      if (
+        estimateSessionMinutes(exercises) + addedMinutes <= profile.sessionMinutes &&
+        canApplySets(currentEx, sessionEffective, needed)
+      ) {
+        applySets(currentEx, sessionEffective, needed);
+        current.sets = minSets;
+        idx += 1;
+        continue;
+      }
+
+      // (c) Hapus gerakan tersebut
+      applySets(currentEx, sessionEffective, -current.sets);
+      exercises.splice(idx, 1);
+    }
+  };
+
+  const week1Sessions: PlannedSession[] = templates.map((tpl, sIdx) => {
+    enforceSessionConstraints(sessionPickedExercises[sIdx], sessionEffectiveList[sIdx]);
+    return {
       label: tpl.label,
-      exercises: sortSessionExercises(pickedExercises),
-      templateMuscleOrder: tpl.muscles,
-    });
+      exercises: sortSessionExercises(sessionPickedExercises[sIdx]),
+    };
   });
 
-  // Langkah 8: Bangun seluruh mesocycleWeeks minggu
+  // Langkah 8: Bangun mesocycleWeeks minggu
   const mesocycleWeeks = PROGRAM_CONFIG.mesocycleWeeks;
   const accumWeeksCount = Math.max(1, mesocycleWeeks - 1);
-  const weeks: PlannedWeek[] = [];
-
-  const week1Sessions: PlannedSession[] = week1SessionsRaw.map((s) => ({
-    label: s.label,
-    exercises: s.exercises,
-  }));
-
-  weeks.push({
-    weekIndex: 1,
-    isDeload: false,
-    sessions: week1Sessions,
-  });
+  const weeks: PlannedWeek[] = [
+    {
+      weekIndex: 1,
+      isDeload: false,
+      sessions: week1Sessions,
+    },
+  ];
 
   // Minggu 2..(n-1): tambah weeklySetIncrement per otot tanpa melewati cap / maxSets / sessionMinutes
   for (let w = 2; w <= accumWeeksCount; w++) {
     const prevWeek = weeks[w - 2];
     const targetRIR = getRirForWeek(profile, w, false);
 
-    // Kloning sesi dari minggu sebelumnya dengan targetRIR minggu ini
     const nextSessions: PlannedSession[] = prevWeek.sessions.map((s) => ({
       label: s.label,
       exercises: s.exercises.map((ex) => ({ ...ex, targetRIR })),
     }));
 
-    // Hitung ulang pelacak efektif untuk minggu w
     const weekEff = createZeroMuscleMap();
     const sessEffs = nextSessions.map(() => createZeroMuscleMap());
 
@@ -395,7 +541,6 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
       }
     });
 
-    // Kumpulkan semua otot yang dilatih dan tambahkan +weeklySetIncrement bila memungkinkan
     const musclesToProgress: MuscleKey[] = [
       ...profile.priorityMuscles,
       ...ALL_MUSCLES.filter((m) => !profile.priorityMuscles.includes(m)),
@@ -403,8 +548,6 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
 
     for (const muscle of musclesToProgress) {
       let remainingIncrement = PROGRAM_CONFIG.weeklySetIncrement;
-      if (remainingIncrement <= 0) continue;
-
       while (remainingIncrement > 0) {
         let bestCandidate: { sIdx: number; eIdx: number } | null = null;
         let lowestSets = Infinity;
@@ -414,7 +557,6 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
             const ex = exerciseById.get(planned.exerciseId);
             if (!ex || ex.primaryMuscle !== muscle) return;
 
-            // Pastikan durasi sesi tetap <= sessionMinutes
             const meta = EXERCISE_META[planned.exerciseId];
             if (
               estimateSessionMinutes(sess.exercises) +
@@ -424,7 +566,6 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
               return;
             }
 
-            // Pastikan semua otot terdampak tetap <= cap & maxSetsPerMusclePerSession
             let withinLimits = true;
             for (const { muscle: affected, weight } of getExerciseContributions(ex)) {
               const cap = getMuscleCap(affected, profile.level);
@@ -493,7 +634,7 @@ export function generatePlan(profile: UserProfile): ProgramPlan {
     });
   }
 
-  // Langkah 9: Susun warnings[] untuk otot yang tidak mendapat gerakan
+  // Langkah 9: Susun warnings[]
   const primaryTrainedMuscles = new Set<MuscleKey>();
   for (const sess of weeks[0].sessions) {
     for (const planned of sess.exercises) {

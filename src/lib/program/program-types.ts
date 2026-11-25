@@ -134,6 +134,9 @@ export const PROGRAM_CONFIG = {
   /** Batas set efektif satu otot dalam satu sesi. Heuristik. */
   maxSetsPerMusclePerSession: 8,
 
+  /** Batas minimum set per gerakan pada minggu akumulasi (non-deload). Heuristik. */
+  minSetsPerExercise: 2,
+
   /** Estimasi menit per set (termasuk istirahat). Untuk menyesuaikan jumlah gerakan dengan durasi sesi. Heuristik. */
   minutesPerSet: { main: 2.5, accessory: 1.8, finisher: 1.2, skill: 2.5 },
   warmupMinutes: 5,
