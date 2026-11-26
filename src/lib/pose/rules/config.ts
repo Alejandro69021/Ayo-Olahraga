@@ -736,7 +736,7 @@ export const HIP_SHOOT_CHECK: FormCheck = {
         isViolating = diffRatio > 0.10;
       } else {
         // Fallback jika frame ascending tanpa melalui descending: dada tetap terlalu condong
-        const trunkLean = angleFromVertical(shoulder, hip);
+        const trunkLean = angleFromVertical2D(shoulder, hip);
         isViolating = trunkLean > 60;
         diffPercent = Math.round(trunkLean);
       }
@@ -764,10 +764,14 @@ export const HIP_LOCKOUT_CHECK: FormCheck = {
     if (isBallisticFpsTooLow(ctx)) return { ok: true, value: 180, cue: "" };
 
     const { shoulder, hip, knee } = getSideJoints(frame.landmarks, frame.side);
-    if (!shoulder || !hip || !knee) return { ok: true, value: 180, cue: "" };
+    const frameHipAngle =
+      shoulder && hip && knee ? angleAt2D(shoulder, hip, knee) : undefined;
+    if (ctx.maxRawMetricValue === undefined && frameHipAngle === undefined) {
+      return { ok: true, value: 180, cue: "" };
+    }
 
     // heuristik, toleransi ±10–15°
-    const hipAngle = angleAt(shoulder, hip, knee);
+    const hipAngle = ctx.maxRawMetricValue ?? frameHipAngle ?? 180;
     if (hipAngle < 165) {
       return {
         ok: false,
@@ -798,7 +802,7 @@ export const HINGE_NOT_SQUAT_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Sudut lutut berubah > 35° antar posisi atas (~170°-175°) dan bawah -> lutut tertekuk < 135°
-    const kneeAngle = angleAt(hip, knee, ankle);
+    const kneeAngle = angleAt2D(hip, knee, ankle);
     const isViolating = kneeAngle < 135;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -825,8 +829,71 @@ export const NO_LEAN_BACK_CHECK: FormCheck = {
     const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
+    const leanAngle = angleFromVertical2D(shoulder, hip);
+    if (!ctx.bottomLandmarks) {
+      return { ok: true, value: Math.round(leanAngle), cue: "" };
+    }
+
+    const bottomJoints = getSideJoints(ctx.bottomLandmarks, frame.side);
+    if (!bottomJoints.shoulder || !bottomJoints.hip) {
+      return { ok: true, value: Math.round(leanAngle), cue: "" };
+    }
+
     // heuristik, toleransi ±10–15°
-    // Bahu condong ke belakang melewati pinggul > 10° dari vertikal
+    // Arah "maju" dari titik terbawah; tegur hanya jika condong berlawanan arah di atas > 10°
+    const forwardSign = Math.sign(bottomJoints.shoulder.x - bottomJoints.hip.x);
+    const topDiffX = shoulder.x - hip.x;
+    const isLeaningBack =
+      forwardSign !== 0 &&
+      Math.sign(topDiffX) !== forwardSign &&
+      Math.abs(topDiffX) > 0.04 &&
+      leanAngle > 10;
+    if (isLeaningBack) {
+      return {
+        ok: false,
+        value: Math.round(leanAngle),
+        cue: "Jangan condong ke belakang di atas",
+      };
+    }
+    return { ok: true, value: Math.round(leanAngle), cue: "" };
+  },
+};
+
+// Cek asli dipertahankan untuk HINGE_BALLISTIC_RULESET agar kb-swing/kb-snatch tidak berubah
+const BALLISTIC_HIP_LOCKOUT_CHECK: FormCheck = {
+  id: "hip-lockout",
+  label: "Kunci Pinggul di Atas",
+  severity: "major",
+  when: "top",
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    if (isBallisticFpsTooLow(ctx)) return { ok: true, value: 180, cue: "" };
+
+    const { shoulder, hip, knee } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !hip || !knee) return { ok: true, value: 180, cue: "" };
+
+    const hipAngle = angleAt(shoulder, hip, knee);
+    if (hipAngle < 165) {
+      return {
+        ok: false,
+        value: Math.round(hipAngle),
+        cue: "Berdiri tegak penuh di atas",
+      };
+    }
+    return { ok: true, value: Math.round(hipAngle), cue: "Kunci pinggul sempurna" };
+  },
+};
+
+const BALLISTIC_NO_LEAN_BACK_CHECK: FormCheck = {
+  id: "no-lean-back",
+  label: "Hiperektensi Pinggul ke Belakang",
+  severity: "major",
+  when: "top",
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
+    if (isBallisticFpsTooLow(ctx)) return { ok: true, value: 0, cue: "" };
+
+    const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
+    if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
+
     const leanAngle = angleFromVertical(shoulder, hip);
     const isLeaningBack = shoulder.x < hip.x - 0.04 && leanAngle > 10;
     if (isLeaningBack) {
@@ -856,11 +923,11 @@ export const HINGE_RULESET: RuleSet = {
   ],
   mode: "reps",
   counter: {
-    // Metrik: sudut pinggul (bahu-pinggul-lutut)
+    // Metrik: sudut pinggul 2D (bahu-pinggul-lutut)
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.hip || !joints.knee) return 180;
-      return angleAt(joints.shoulder, joints.hip, joints.knee);
+      return angleAt2D(joints.shoulder, joints.hip, joints.knee);
     },
     upThreshold: 160, // heuristik, toleransi ±10–15° (penyelesaian repetisi; lockout penuh dicek pada 165°)
     downThreshold: 120, // heuristik, toleransi ±10–15°
@@ -934,9 +1001,9 @@ export const HINGE_BALLISTIC_RULESET: RuleSet = {
     minRepMs: 700,
   },
   checks: [
-    HIP_LOCKOUT_CHECK,
+    BALLISTIC_HIP_LOCKOUT_CHECK,
     SWING_HEIGHT_CHECK,
-    NO_LEAN_BACK_CHECK,
+    BALLISTIC_NO_LEAN_BACK_CHECK,
   ],
 };
 

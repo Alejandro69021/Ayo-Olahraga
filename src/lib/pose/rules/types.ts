@@ -31,6 +31,7 @@ export interface RepContext {
   minRawMetricValue?: number;
   maxRawMetricValue?: number;
   maxDepthProxy?: number;
+  bottomLandmarks?: Landmark[];
   maxMetricValue: number;
   repIndex: number;
   exerciseId: string;

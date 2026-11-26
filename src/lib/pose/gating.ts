@@ -178,6 +178,7 @@ export function resetRepCounterToIdle(counter: RepCounter): void {
   (counter as any).minRawMetricValue = undefined;
   (counter as any).maxRawMetricValue = undefined;
   (counter as any).rawMetricWindow = [];
+  (counter as any).bottomLandmarks = undefined;
   (counter as any).maxMetricValue = 0;
   (counter as any).currentRepIssues = [];
   (counter as any).activeCues = [];

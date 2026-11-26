@@ -6,6 +6,7 @@ import {
   HoldResult,
   IssueItem,
 } from "./rules/types";
+import { Landmark } from "./landmarks";
 import { getSideJoints } from "./rules/config";
 import { calculateRepScore, calculateHoldScore } from "./scoring";
 
@@ -36,6 +37,7 @@ export class RepCounter {
   private rawMetricWindow: number[] = [];
   private maxDepthProxy: number | undefined = undefined;
   private rawDepthProxyWindow: number[] = [];
+  private bottomLandmarks: Landmark[] | undefined = undefined;
   private maxMetricValue: number = 0;
   private repIndex: number = 0;
 
@@ -188,6 +190,7 @@ export class RepCounter {
           this.phase = "descending";
           this.repStartTimeMs = frame.timestampMs;
           this.minMetricValue = metricVal;
+          this.bottomLandmarks = frame.landmarks.map((p) => ({ ...p }));
           this.minRawMetricValue = undefined;
           this.maxRawMetricValue = undefined;
           this.maxDepthProxy = undefined;
@@ -205,6 +208,7 @@ export class RepCounter {
       case "descending":
         if (metricVal < this.minMetricValue) {
           this.minMetricValue = metricVal;
+          this.bottomLandmarks = frame.landmarks.map((p) => ({ ...p }));
         }
         this.updateRawMetric(frame, true);
         this.updateRawDepthProxy(frame, true);
@@ -342,6 +346,7 @@ export class RepCounter {
     this.rawMetricWindow = [];
     this.maxDepthProxy = undefined;
     this.rawDepthProxyWindow = [];
+    this.bottomLandmarks = undefined;
     this.descentFromTopMs = undefined;
     this.lastTopTimestampMs =
       this.ruleSet.counter.metric(frame) >= this.ruleSet.counter.upThreshold
@@ -478,6 +483,9 @@ export class RepCounter {
       ...(this.maxDepthProxy !== undefined
         ? { maxDepthProxy: this.maxDepthProxy }
         : {}),
+      ...(this.bottomLandmarks !== undefined
+        ? { bottomLandmarks: this.bottomLandmarks }
+        : {}),
       maxMetricValue: this.maxMetricValue,
       repIndex: this.repIndex,
       exerciseId: this.exerciseId,
@@ -510,6 +518,7 @@ export class RepCounter {
     this.rawMetricWindow = [];
     this.maxDepthProxy = undefined;
     this.rawDepthProxyWindow = [];
+    this.bottomLandmarks = undefined;
     this.maxMetricValue = 0;
     this.repIndex = 0;
     this.currentRepIssues = [];
