@@ -1,16 +1,34 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Scale,
   Utensils,
-  Calculator,
-  Flame,
   Plus,
-  RotateCcw,
+  Download,
+  Upload,
+  Trash2,
+  History,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Dumbbell,
+  Clock,
+  HardDrive,
 } from "lucide-react";
+import {
+  getAllSessionsOffline,
+  saveWorkoutSessionOffline,
+  deleteWorkoutSessionOffline,
+  clearAllWorkoutSessionsOffline,
+  type WorkoutSessionPayload,
+} from "@/lib/offline-storage";
+import {
+  getProfile,
+  saveProfile,
+  listPlans,
+  savePlan,
+} from "@/lib/program/storage";
+import type { ProgramPlan, UserProfile } from "@/lib/program/program-types";
 
 interface MealPreset {
   id: string;
@@ -20,6 +38,15 @@ interface MealPreset {
   carbs: number;
   fat: number;
   portion: string;
+}
+
+interface BackupBundleV1 {
+  app: "ayo-olahraga";
+  version: 1;
+  exportedAt: number;
+  sessions: WorkoutSessionPayload[];
+  profile: UserProfile | null;
+  plans: ProgramPlan[];
 }
 
 const INDONESIAN_MEALS: MealPreset[] = [
@@ -34,7 +61,7 @@ const INDONESIAN_MEALS: MealPreset[] = [
 ];
 
 export const FitnessTools: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"bmi" | "tdee" | "indo-meals">("bmi");
+  const [activeTab, setActiveTab] = useState<"bmi" | "tdee" | "indo-meals" | "history-backup">("bmi");
 
   // BMI State
   const [weightKg, setWeightKg] = useState<number>(70);
@@ -48,6 +75,131 @@ export const FitnessTools: React.FC = () => {
 
   // Selected Meals tracker
   const [loggedMeals, setLoggedMeals] = useState<MealPreset[]>([]);
+
+  // Local History & Backup State
+  const [sessions, setSessions] = useState<WorkoutSessionPayload[]>([]);
+  const [plansCount, setPlansCount] = useState<number>(0);
+  const [statusNotice, setStatusNotice] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState<boolean>(false);
+
+  const refreshLocalRecords = async () => {
+    try {
+      const [loadedSessions, loadedPlans] = await Promise.all([
+        getAllSessionsOffline(),
+        listPlans(),
+      ]);
+      setSessions(loadedSessions);
+      setPlansCount(loadedPlans?.length ?? 0);
+    } catch {
+      setSessions([]);
+    }
+  };
+
+  useEffect(() => {
+    refreshLocalRecords();
+  }, [activeTab]);
+
+  const handleExportBackup = async () => {
+    try {
+      const [allSessions, profile, plans] = await Promise.all([
+        getAllSessionsOffline(),
+        getProfile(),
+        listPlans(),
+      ]);
+      const payload: BackupBundleV1 = {
+        app: "ayo-olahraga",
+        version: 1,
+        exportedAt: Date.now(),
+        sessions: allSessions,
+        profile: profile ?? null,
+        plans: plans ?? [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `ayo-olahraga-backup-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setStatusNotice({
+        type: "ok",
+        text: `Backup berhasil diunduh (${allSessions.length} sesi latihan, ${(plans ?? []).length} program).`,
+      });
+    } catch {
+      setStatusNotice({
+        type: "err",
+        text: "Gagal membuat file backup JSON.",
+      });
+    }
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    try {
+      const raw = await file.text();
+      const parsed = JSON.parse(raw) as Partial<BackupBundleV1>;
+      if (!parsed || typeof parsed !== "object") {
+        throw new Error("Format file tidak valid.");
+      }
+
+      let importedSessions = 0;
+      let importedPlans = 0;
+
+      if (Array.isArray(parsed.sessions)) {
+        for (const s of parsed.sessions) {
+          if (s && typeof s.id === "string" && Array.isArray(s.exercises)) {
+            await saveWorkoutSessionOffline(s);
+            importedSessions++;
+          }
+        }
+      }
+
+      if (parsed.profile && typeof parsed.profile === "object") {
+        await saveProfile(parsed.profile as UserProfile);
+      }
+
+      if (Array.isArray(parsed.plans)) {
+        for (const p of parsed.plans) {
+          if (p && typeof p.id === "string" && Array.isArray(p.weeks)) {
+            await savePlan(p);
+            importedPlans++;
+          }
+        }
+      }
+
+      await refreshLocalRecords();
+      setStatusNotice({
+        type: "ok",
+        text: `Data berhasil dipulihkan: ${importedSessions} sesi latihan & ${importedPlans} jadwal program.`,
+      });
+    } catch {
+      setStatusNotice({
+        type: "err",
+        text: "File JSON tidak dikenali. Pastikan menggunakan file backup resmi Ayo-Olahraga.",
+      });
+    }
+  };
+
+  const handleDeleteSingleSession = async (sessionId: string) => {
+    await deleteWorkoutSessionOffline(sessionId);
+    await refreshLocalRecords();
+    setStatusNotice({ type: "ok", text: "Sesi latihan berhasil dihapus dari perangkat." });
+  };
+
+  const handleClearAllSessions = async () => {
+    await clearAllWorkoutSessionsOffline();
+    await refreshLocalRecords();
+    setConfirmClearAll(false);
+    setStatusNotice({ type: "ok", text: "Seluruh riwayat sesi latihan berhasil dikosongkan." });
+  };
 
   // Calculate BMI
   const heightInMeters = heightCm / 100;
@@ -85,45 +237,60 @@ export const FitnessTools: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
             <h3 className="text-lg font-black text-white tracking-tight">
-              Alat Kebugaran & Nutrisi Lokal
+              Alat Kebugaran, Nutrisi &amp; Data Lokal
             </h3>
           </div>
           <p className="text-xs text-gray-400 mt-0.5">
-            Kalkulator BMI, estimasi TDEE makro, dan database kalori makanan khas Indonesia.
+            Kalkulator BMI, estimasi TDEE makro, kalori makanan Indonesia, serta riwayat &amp; backup offline.
           </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 bg-gray-900 p-1 rounded-xl border border-gray-800 text-xs font-bold">
+        <div className="flex flex-wrap items-center gap-1 bg-gray-900 p-1 rounded-xl border border-gray-800 text-xs font-bold">
           <button
+            type="button"
             onClick={() => setActiveTab("bmi")}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
+            className={`px-3 py-2 rounded-lg transition-all min-h-[38px] ${
               activeTab === "bmi"
                 ? "bg-orange-500 text-black shadow-md shadow-orange-500/20"
                 : "text-gray-400 hover:text-white"
             }`}
           >
-            Kalkulator BMI
+            BMI
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("tdee")}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
+            className={`px-3 py-2 rounded-lg transition-all min-h-[38px] ${
               activeTab === "tdee"
                 ? "bg-orange-500 text-black shadow-md shadow-orange-500/20"
                 : "text-gray-400 hover:text-white"
             }`}
           >
-            TDEE & Kalori
+            TDEE &amp; Kalori
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("indo-meals")}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
+            className={`px-3 py-2 rounded-lg transition-all min-h-[38px] ${
               activeTab === "indo-meals"
                 ? "bg-orange-500 text-black shadow-md shadow-orange-500/20"
                 : "text-gray-400 hover:text-white"
             }`}
           >
             Makanan Lokal
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("history-backup")}
+            className={`px-3 py-2 rounded-lg transition-all inline-flex items-center gap-1.5 min-h-[38px] ${
+              activeTab === "history-backup"
+                ? "bg-lime-400 text-black shadow-md shadow-lime-400/20"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Riwayat &amp; Backup</span>
           </button>
         </div>
       </div>
@@ -313,6 +480,7 @@ export const FitnessTools: React.FC = () => {
 
             {loggedMeals.length > 0 && (
               <button
+                type="button"
                 onClick={() => setLoggedMeals([])}
                 className="text-xs font-bold text-rose-400 hover:text-rose-300 self-end sm:self-auto"
               >
@@ -340,7 +508,7 @@ export const FitnessTools: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setLoggedMeals((prev) => [...prev, meal])}
-                  className="p-2 rounded-xl bg-gray-800 hover:bg-orange-500 hover:text-black text-gray-300 transition-colors shrink-0"
+                  className="p-2.5 rounded-xl bg-gray-800 hover:bg-orange-500 hover:text-black text-gray-300 transition-colors shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
                   title="Tambah ke Log"
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
@@ -350,7 +518,174 @@ export const FitnessTools: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* TAB 4: RIWAYAT LATIHAN & BACKUP LOKAL JSON */}
+      {activeTab === "history-backup" && (
+        <div className="space-y-5 animate-in fade-in duration-150">
+          {/* Backup & Restore Card */}
+          <div className="p-4 rounded-2xl bg-gray-900/70 border border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-lime-400/10 border border-lime-400/30 flex items-center justify-center text-lime-400 shrink-0 mt-0.5">
+                <HardDrive className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-white">
+                  Cadangkan &amp; Pulihkan Data Perangkat (Offline JSON)
+                </h4>
+                <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                  Tersimpan di perangkat ini:{" "}
+                  <strong className="text-white">{sessions.length} sesi latihan</strong> dan{" "}
+                  <strong className="text-white">{plansCount} program</strong>. Ekspor ke file JSON sebelum ganti HP atau hapus cache browser.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleExportBackup}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-lime-400 hover:bg-lime-300 text-black font-metric font-bold text-xs uppercase tracking-wider transition-colors min-h-[42px]"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Ekspor JSON</span>
+              </button>
+
+              <label className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white font-metric font-bold text-xs uppercase tracking-wider cursor-pointer transition-colors min-h-[42px]">
+                <Upload className="w-3.5 h-3.5 text-lime-400" />
+                <span>Impor JSON</span>
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleImportBackup}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+
+          {statusNotice && (
+            <div
+              className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
+                statusNotice.type === "ok"
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+              }`}
+            >
+              {statusNotice.type === "ok" ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0" />
+              )}
+              <span>{statusNotice.text}</span>
+            </div>
+          )}
+
+          {/* Sessions History List */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                Riwayat Sesi Latihan ({sessions.length})
+              </span>
+
+              {sessions.length > 0 && (
+                <div>
+                  {confirmClearAll ? (
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleClearAllSessions}
+                        className="px-2.5 py-1 rounded-lg bg-rose-500 text-black text-xs font-bold"
+                      >
+                        Yakin Kosongkan Semua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmClearAll(false)}
+                        className="px-2.5 py-1 rounded-lg bg-gray-800 text-gray-300 text-xs font-semibold"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClearAll(true)}
+                      className="text-xs font-semibold text-rose-400 hover:text-rose-300"
+                    >
+                      Kosongkan Semua
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {sessions.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-gray-900/40 border border-gray-800 text-center space-y-1.5">
+                <Dumbbell className="w-6 h-6 text-gray-500 mx-auto" />
+                <p className="text-xs sm:text-sm font-semibold text-gray-300">
+                  Belum ada riwayat sesi latihan tersimpan
+                </p>
+                <p className="text-xs text-gray-500">
+                  Selesaikan sesi di Tracker atau impor file backup JSON Anda.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                {sessions.slice(0, 20).map((session) => {
+                  const dateLabel = new Date(session.startedAt).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  });
+                  const mins = Math.max(1, Math.round(session.durationSeconds / 60));
+                  const completedSets = session.exercises.reduce(
+                    (sum, ex) => sum + ex.sets.filter((s) => s.completed).length,
+                    0
+                  );
+
+                  return (
+                    <div
+                      key={session.id}
+                      className="p-3.5 rounded-2xl bg-gray-900/50 border border-gray-800 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs sm:text-sm font-bold text-white truncate">
+                            {session.title}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-400 font-mono">
+                            {dateLabel}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-400 font-mono">
+                          <span className="text-lime-400 font-bold">
+                            {session.totalVolumeKg.toLocaleString()} KG
+                          </span>
+                          <span>•</span>
+                          <span>{completedSets} set</span>
+                          <span>•</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> {mins} mnt
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSingleSession(session.id)}
+                        className="p-2 rounded-xl bg-gray-900 hover:bg-rose-500/15 border border-gray-800 hover:border-rose-500/40 text-gray-400 hover:text-rose-300 transition-colors shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
+                        title="Hapus sesi ini"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

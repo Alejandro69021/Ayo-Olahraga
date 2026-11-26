@@ -125,6 +125,59 @@ export async function getAllSessionsOffline(): Promise<WorkoutSessionPayload[]> 
   }
 }
 
+/**
+ * Delete a single workout session from offline storage
+ */
+export async function deleteWorkoutSessionOffline(sessionId: string): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction([STORE_SESSIONS, STORE_PENDING_SYNC], "readwrite");
+    tx.objectStore(STORE_SESSIONS).delete(sessionId);
+    tx.objectStore(STORE_PENDING_SYNC).delete(sessionId);
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    try {
+      const existing: WorkoutSessionPayload[] = JSON.parse(
+        localStorage.getItem(STORE_SESSIONS) || "[]"
+      );
+      localStorage.setItem(
+        STORE_SESSIONS,
+        JSON.stringify(existing.filter((s) => s.id !== sessionId))
+      );
+      const pending: WorkoutSessionPayload[] = JSON.parse(
+        localStorage.getItem(STORE_PENDING_SYNC) || "[]"
+      );
+      localStorage.setItem(
+        STORE_PENDING_SYNC,
+        JSON.stringify(pending.filter((s) => s.id !== sessionId))
+      );
+    } catch {}
+  }
+}
+
+/**
+ * Clear all logged workout sessions from offline storage
+ */
+export async function clearAllWorkoutSessionsOffline(): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction([STORE_SESSIONS, STORE_PENDING_SYNC], "readwrite");
+    tx.objectStore(STORE_SESSIONS).clear();
+    tx.objectStore(STORE_PENDING_SYNC).clear();
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {}
+  try {
+    localStorage.removeItem(STORE_SESSIONS);
+    localStorage.removeItem(STORE_PENDING_SYNC);
+  } catch {}
+}
+
 function getLocalStorageSessions(): WorkoutSessionPayload[] {
   try {
     return JSON.parse(localStorage.getItem(STORE_SESSIONS) || "[]");

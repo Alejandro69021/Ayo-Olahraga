@@ -2,7 +2,7 @@
   "name": "Ayo-Olahraga",
   "short_name": "Ayo-Olahraga",
   "description": "Next-gen offline-first fitness tracker, biomechanical heatmap, and smart progressive overload",
-  "start_url": "/",
+  "start_url": "/tracker",
   "display": "standalone",
   "background_color": "#080808",
   "theme_color": "#080808",

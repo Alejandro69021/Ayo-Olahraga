@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Home } from "lucide-react";
 import { ProfileWizard } from "@/components/program/ProfileWizard";
 
 export default function NewProgramPage() {
@@ -8,9 +8,10 @@ export default function NewProgramPage() {
       <header className="flex items-center justify-between gap-3 border-b border-zinc-800 pb-4">
         <div className="flex items-center gap-3">
           <Link
-            href="/"
+            href="/tracker"
             className="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-            aria-label="Kembali ke halaman utama"
+            aria-label="Kembali ke Pelacak Latihan"
+            title="Kembali ke Pelacak Latihan"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
@@ -23,6 +24,15 @@ export default function NewProgramPage() {
             </p>
           </div>
         </div>
+
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-300 hover:text-white transition-colors min-h-[44px]"
+          title="Ke Beranda Landing Page"
+        >
+          <Home className="w-3.5 h-3.5 text-lime-400" />
+          <span>Beranda</span>
+        </Link>
       </header>
 
       <ProfileWizard />

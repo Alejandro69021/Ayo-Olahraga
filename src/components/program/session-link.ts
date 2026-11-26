@@ -76,7 +76,7 @@ export function buildSessionTrackerHref(
     }
   }
 
-  if (uniqueIds.length === 0) return "/";
+  if (uniqueIds.length === 0) return "/tracker";
   const params = new URLSearchParams({ exercises: uniqueIds.join(",") });
   if (targetTokens.length > 0) {
     params.set("targets", targetTokens.join(","));
@@ -90,7 +90,7 @@ export function buildSessionTrackerHref(
       params.set("session", context.sessionLabel.trim());
     }
   }
-  return `/?${params.toString()}`;
+  return `/tracker?${params.toString()}`;
 }
 
 /** Parse program origin context from tracker URL query string. */

@@ -66,7 +66,7 @@ export default function CoachDevPage() {
       <header className="max-w-6xl mx-auto w-full flex items-center justify-between border-b border-zinc-800 pb-4 mb-6">
         <div className="flex items-center gap-3">
           <Link
-            href="/"
+            href="/tracker"
             className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-colors"
             title="Kembali ke Tracker Utama"
           >

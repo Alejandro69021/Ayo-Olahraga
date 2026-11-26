@@ -12,7 +12,7 @@ describe("session-link helpers", () => {
   it("builds tracker href with deduplicated exercise IDs and round-trips through query parser", () => {
     const firstThree = EXERCISES_DATABASE.slice(0, 3).map((e) => e.id);
     const href = buildSessionTrackerHref([...firstThree, firstThree[0], "  "]);
-    expect(href.startsWith("/?exercises=")).toBe(true);
+    expect(href.startsWith("/tracker?exercises=")).toBe(true);
 
     const query = href.slice(href.indexOf("?"));
     const resolved = resolveExercisesFromQuery(query, EXERCISES_DATABASE);
@@ -22,7 +22,7 @@ describe("session-link helpers", () => {
   it("ignores unknown IDs and returns empty array when query missing", () => {
     expect(resolveExercisesFromQuery("", EXERCISES_DATABASE)).toEqual([]);
     expect(resolveExercisesFromQuery("?exercises=unknown-id-123", EXERCISES_DATABASE)).toEqual([]);
-    expect(buildSessionTrackerHref([])).toBe("/");
+    expect(buildSessionTrackerHref([])).toBe("/tracker");
   });
 
   it("formats timed vs rep-based targets using exercise metadata", () => {
