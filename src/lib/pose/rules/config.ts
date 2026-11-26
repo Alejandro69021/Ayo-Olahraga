@@ -116,14 +116,18 @@ export function resetPressHorizontalTracking(): void {
   benchHipBaseline = null;
 }
 
-export function resetViolationStreaks(): void {
+export function resetCheckTrackingState(): void {
   streakMap.clear();
   resetHingeTracking();
-  resetBallisticFps();
   resetRowTracking();
   resetPullupTracking();
   resetDipTracking();
   resetPressHorizontalTracking();
+}
+
+export function resetViolationStreaks(): void {
+  resetCheckTrackingState();
+  resetBallisticFps();
 }
 
 export function checkConsecutiveViolation(

@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { RepCounter } from "../rep-counter";
-import { HINGE_RULESET, HINGE_NOT_SQUAT_CHECK } from "../rules/config";
+import {
+  HINGE_RULESET,
+  HINGE_BALLISTIC_RULESET,
+  HINGE_NOT_SQUAT_CHECK,
+  setBallisticFps,
+  isBallisticFpsTooLow,
+  recordBallisticFrame,
+} from "../rules/config";
 import { PoseFrame, RepContext } from "../rules/types";
 import {
   Landmark,
@@ -158,5 +165,19 @@ describe("minRepMs dari posisi atas dan reset state global di RepCounter", () =>
     expect(HINGE_NOT_SQUAT_CHECK.evaluate(violatingFrame, ctx).ok).toBe(true);
     expect(HINGE_NOT_SQUAT_CHECK.evaluate(violatingFrame, ctx).ok).toBe(true);
     expect(HINGE_NOT_SQUAT_CHECK.evaluate(violatingFrame, ctx).ok).toBe(false);
+  });
+
+  it("3. setBallisticFps(30) lalu new RepCounter(...) lalu reset() -> isBallisticFpsTooLow() tetap false", () => {
+    setBallisticFps(30);
+    // Simulasikan interval lambat agar jika override hilang, ballisticAverageFps turun < 24
+    recordBallisticFrame(1000);
+    recordBallisticFrame(1300);
+    recordBallisticFrame(1600);
+
+    const counter = new RepCounter(HINGE_BALLISTIC_RULESET, "kb-swing");
+    expect(isBallisticFpsTooLow()).toBe(false);
+
+    counter.reset();
+    expect(isBallisticFpsTooLow()).toBe(false);
   });
 });

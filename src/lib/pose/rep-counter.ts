@@ -9,8 +9,7 @@ import {
 import { Landmark } from "./landmarks";
 import {
   getSideJoints,
-  resetHingeTracking,
-  resetViolationStreaks,
+  resetCheckTrackingState,
 } from "./rules/config";
 import { calculateRepScore, calculateHoldScore } from "./scoring";
 
@@ -68,8 +67,7 @@ export class RepCounter {
   constructor(ruleSet: RuleSet, exerciseId: string) {
     this.ruleSet = ruleSet;
     this.exerciseId = exerciseId;
-    resetHingeTracking();
-    resetViolationStreaks();
+    resetCheckTrackingState();
   }
 
   /**
@@ -541,7 +539,6 @@ export class RepCounter {
     this.bodyLength = undefined;
     this.firstTimestampMs = 0;
     this.isCalibrated = false;
-    resetHingeTracking();
-    resetViolationStreaks();
+    resetCheckTrackingState();
   }
 }
