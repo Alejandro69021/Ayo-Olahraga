@@ -322,7 +322,7 @@ export const PUSHUP_DEPTH_CHECK: FormCheck = {
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
     // Sudut siku minimum di bawah harus <= 100° (sekitar 90°)
     // heuristik, toleransi ±10–15°
-    const minElbowAngle = ctx.minMetricValue;
+    const minElbowAngle = ctx.minRawMetricValue ?? ctx.minMetricValue;
     if (minElbowAngle > 100) {
       return {
         ok: false,
@@ -344,7 +344,7 @@ export const PUSHUP_HIP_SAG_CHECK: FormCheck = {
     if (!shoulder || !hip || !ankle) return { ok: true, value: 180, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    const bodyAngle = angleAt(shoulder, hip, ankle);
+    const bodyAngle = angleAt2D(shoulder, hip, ankle);
 
     // Garis lurus bahu-pergelangan kaki: Y di posisi X pinggul
     const dx = ankle.x - shoulder.x;
@@ -384,9 +384,9 @@ export const PUSHUP_HIP_PIKE_CHECK: FormCheck = {
 
     // Pinggul naik di atas garis lurus (Y lebih kecil) melebihi 8% panjang tubuh
     // heuristik, toleransi ±10–15°
-    const bodyHeight = Math.max(0.1, ctx.bodyHeight);
+    const bodyLength = Math.max(0.1, ctx.bodyLength ?? ctx.bodyHeight);
     const pikeDist = expectedY - hip.y;
-    const pikeRatio = pikeDist / bodyHeight;
+    const pikeRatio = pikeDist / bodyLength;
 
     if (pikeRatio > 0.08) {
       return {
@@ -404,12 +404,16 @@ export const PUSHUP_LOCKOUT_CHECK: FormCheck = {
   label: "Ekstensi Siku di Atas",
   severity: "minor",
   when: "top",
-  evaluate: (frame: PoseFrame): CheckResult => {
+  evaluate: (frame: PoseFrame, ctx: RepContext): CheckResult => {
     const { shoulder, elbow, wrist } = getSideJoints(frame.landmarks, frame.side);
-    if (!shoulder || !elbow || !wrist) return { ok: true, value: 180, cue: "" };
+    const frameElbowAngle =
+      shoulder && elbow && wrist ? angleAt2D(shoulder, elbow, wrist) : undefined;
+    if (ctx.maxRawMetricValue === undefined && frameElbowAngle === undefined) {
+      return { ok: true, value: 180, cue: "" };
+    }
 
     // heuristik, toleransi ±10–15°
-    const elbowAngle = angleAt(shoulder, elbow, wrist);
+    const elbowAngle = ctx.maxRawMetricValue ?? frameElbowAngle ?? 180;
     if (elbowAngle < 160) {
       return {
         ok: false,
@@ -439,11 +443,11 @@ export const PUSHUP_RULESET: RuleSet = {
   ],
   mode: "reps",
   counter: {
-    // Metrik utama: sudut siku (bahu-siku-pergelangan tangan)
+    // Metrik utama: sudut siku 2D (bahu-siku-pergelangan tangan)
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 155,
     downThreshold: 120, // heuristik, toleransi ±10–15° (margin >= 15° di atas ambang cek 100)
@@ -509,9 +513,9 @@ export const PLANK_HIP_PIKE_CHECK: FormCheck = {
         : (shoulder.y + ankle.y) / 2;
 
     // heuristik, toleransi ±10–15°
-    const bodyHeight = Math.max(0.1, ctx.bodyHeight);
+    const bodyLength = Math.max(0.1, ctx.bodyLength ?? ctx.bodyHeight);
     const pikeDist = expectedY - hip.y;
-    const pikeRatio = pikeDist / bodyHeight;
+    const pikeRatio = pikeDist / bodyLength;
 
     if (pikeRatio > 0.08) {
       return {
@@ -534,9 +538,9 @@ export const PLANK_ELBOW_UNDER_SHOULDER_CHECK: FormCheck = {
     if (!shoulder || !elbow) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    const bodyHeight = Math.max(0.1, ctx.bodyHeight);
+    const bodyLength = Math.max(0.1, ctx.bodyLength ?? ctx.bodyHeight);
     const horizontalDiff = Math.abs(shoulder.x - elbow.x);
-    const diffRatio = horizontalDiff / bodyHeight;
+    const diffRatio = horizontalDiff / bodyLength;
 
     // Selisih horizontal siku-bahu > 10% tinggi badan
     if (diffRatio > 0.1) {
@@ -1077,8 +1081,8 @@ export const HEEL_PRESS_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     const liftDist = ctx.heelYBaseline - heel.y;
-    const bodyHeight = Math.max(0.1, ctx.bodyHeight);
-    const liftRatio = liftDist / bodyHeight;
+    const bodyLength = Math.max(0.1, ctx.bodyLength ?? ctx.bodyHeight);
+    const liftRatio = liftDist / bodyLength;
     const isViolating = liftRatio > 0.03;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -1885,8 +1889,8 @@ export const BUTT_LIFT_CHECK: FormCheck = {
       benchHipBaseline = hip.y;
     }
     const baseline = benchHipBaseline ?? hip.y;
-    const bodyHeight = Math.max(0.1, ctx.bodyHeight);
-    const lift = (baseline - hip.y) / bodyHeight;
+    const bodyLength = Math.max(0.1, ctx.bodyLength ?? ctx.bodyHeight);
+    const lift = (baseline - hip.y) / bodyLength;
     const isViolating = lift > 0.05;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame

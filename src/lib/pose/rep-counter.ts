@@ -32,6 +32,7 @@ export class RepCounter {
   private descentFromTopMs: number | undefined = undefined;
   private minMetricValue: number = 180;
   private minRawMetricValue: number | undefined = undefined;
+  private maxRawMetricValue: number | undefined = undefined;
   private rawMetricWindow: number[] = [];
   private maxDepthProxy: number | undefined = undefined;
   private rawDepthProxyWindow: number[] = [];
@@ -43,6 +44,7 @@ export class RepCounter {
   private isCalibrated: boolean = false;
   private heelYBaseline: number = 0;
   private bodyHeight: number = 1.0;
+  private bodyLength: number | undefined = undefined;
   private torsoLength: number = 0.5;
 
   // Isu pada repetisi saat ini & riwayat repetisi selesai
@@ -101,7 +103,7 @@ export class RepCounter {
     return this.updateReps(frame, ctx);
   }
 
-  private updateRawMetric(frame: PoseFrame, recordMin: boolean): void {
+  private updateRawMetric(frame: PoseFrame, recordMin: boolean, recordMax = false): void {
     if (!frame.rawLandmarks || frame.rawLandmarks.length === 0) return;
 
     const rawVal = this.ruleSet.counter.metric({
@@ -113,13 +115,21 @@ export class RepCounter {
       this.rawMetricWindow.shift();
     }
 
-    if (recordMin && this.rawMetricWindow.length === 3) {
+    if (this.rawMetricWindow.length === 3) {
       const sorted = [...this.rawMetricWindow].sort((a, b) => a - b);
       const median = sorted[1];
-      this.minRawMetricValue =
-        this.minRawMetricValue === undefined
-          ? median
-          : Math.min(this.minRawMetricValue, median);
+      if (recordMin) {
+        this.minRawMetricValue =
+          this.minRawMetricValue === undefined
+            ? median
+            : Math.min(this.minRawMetricValue, median);
+      }
+      if (recordMax) {
+        this.maxRawMetricValue =
+          this.maxRawMetricValue === undefined
+            ? median
+            : Math.max(this.maxRawMetricValue, median);
+      }
     }
   }
 
@@ -179,6 +189,7 @@ export class RepCounter {
           this.repStartTimeMs = frame.timestampMs;
           this.minMetricValue = metricVal;
           this.minRawMetricValue = undefined;
+          this.maxRawMetricValue = undefined;
           this.maxDepthProxy = undefined;
           this.descentFromTopMs = undefined;
           this.maxMetricValue = metricVal;
@@ -228,6 +239,13 @@ export class RepCounter {
 
           this.phase = "ascending";
           if (metricVal >= upThreshold) {
+            if (this.rawMetricWindow.length === 3) {
+              const median = [...this.rawMetricWindow].sort((a, b) => a - b)[1];
+              this.maxRawMetricValue =
+                this.maxRawMetricValue === undefined
+                  ? median
+                  : Math.max(this.maxRawMetricValue, median);
+            }
             this.handleRepComplete(frame, activeFrameIssues, activeFrameCues);
           }
         }
@@ -238,6 +256,7 @@ export class RepCounter {
         if (metricVal > this.maxMetricValue) {
           this.maxMetricValue = metricVal;
         }
+        this.updateRawMetric(frame, false, true);
         this.updateRawDepthProxy(frame, true);
 
         // Repetisi selesai saat metrik kembali melewati upThreshold
@@ -319,6 +338,7 @@ export class RepCounter {
     this.phase = "idle";
     this.minMetricValue = 180;
     this.minRawMetricValue = undefined;
+    this.maxRawMetricValue = undefined;
     this.rawMetricWindow = [];
     this.maxDepthProxy = undefined;
     this.rawDepthProxyWindow = [];
@@ -392,20 +412,42 @@ export class RepCounter {
 
   private calibrateBaseline(frame: PoseFrame) {
     const joints = getSideJoints(frame.landmarks, frame.side);
-    if (!joints.heel || !joints.ankle || !joints.shoulder || !joints.hip) return;
+    if (!joints.shoulder) return;
 
-    this.heelYBaseline = joints.heel.y;
-
-    // Estimasi tinggi badan (jarak vertikal bahu ke mata kaki)
-    const height = Math.abs(joints.ankle.y - joints.shoulder.y);
-    if (height > 0.1) {
-      this.bodyHeight = height;
+    if (joints.heel) {
+      this.heelYBaseline = joints.heel.y;
     }
 
-    // Estimasi panjang batang tubuh (bahu ke pinggul)
-    const torso = Math.abs(joints.hip.y - joints.shoulder.y);
-    if (torso > 0.05) {
-      this.torsoLength = torso;
+    // Estimasi panjang tubuh 2D (jarak Euclidean bahu ke mata kaki, fallback tumit bila mata kaki tidak ada)
+    const isVisibleJoint = (lm?: { visibility?: number }) =>
+      Boolean(lm && (lm.visibility === undefined || lm.visibility >= 0.5));
+    const endPoint = isVisibleJoint(joints.ankle)
+      ? joints.ankle
+      : isVisibleJoint(joints.heel)
+      ? joints.heel
+      : joints.ankle ?? joints.heel;
+    if (endPoint) {
+      const length = Math.hypot(
+        endPoint.x - joints.shoulder.x,
+        endPoint.y - joints.shoulder.y
+      );
+      if (length > 0.1) {
+        this.bodyLength = length;
+      }
+    }
+
+    if (joints.heel && joints.ankle && joints.hip) {
+      // Estimasi tinggi badan (jarak vertikal bahu ke mata kaki)
+      const height = Math.abs(joints.ankle.y - joints.shoulder.y);
+      if (height > 0.1) {
+        this.bodyHeight = height;
+      }
+
+      // Estimasi panjang batang tubuh (bahu ke pinggul)
+      const torso = Math.abs(joints.hip.y - joints.shoulder.y);
+      if (torso > 0.05) {
+        this.torsoLength = torso;
+      }
     }
   }
 
@@ -415,6 +457,7 @@ export class RepCounter {
 
     return {
       bodyHeight: this.bodyHeight,
+      ...(this.bodyLength !== undefined ? { bodyLength: this.bodyLength } : {}),
       torsoLength: this.torsoLength,
       heelYBaseline: this.heelYBaseline,
       isCalibrated: this.isCalibrated,
@@ -428,6 +471,9 @@ export class RepCounter {
       minMetricValue: this.minMetricValue,
       ...(this.minRawMetricValue !== undefined
         ? { minRawMetricValue: this.minRawMetricValue }
+        : {}),
+      ...(this.maxRawMetricValue !== undefined
+        ? { maxRawMetricValue: this.maxRawMetricValue }
         : {}),
       ...(this.maxDepthProxy !== undefined
         ? { maxDepthProxy: this.maxDepthProxy }
@@ -460,6 +506,7 @@ export class RepCounter {
     this.descentFromTopMs = undefined;
     this.minMetricValue = 180;
     this.minRawMetricValue = undefined;
+    this.maxRawMetricValue = undefined;
     this.rawMetricWindow = [];
     this.maxDepthProxy = undefined;
     this.rawDepthProxyWindow = [];
@@ -472,6 +519,7 @@ export class RepCounter {
     this.totalHoldMs = 0;
     this.cleanHoldMs = 0;
     this.holdIssues = [];
+    this.bodyLength = undefined;
     this.firstTimestampMs = 0;
     this.isCalibrated = false;
   }

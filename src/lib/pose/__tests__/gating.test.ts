@@ -14,6 +14,7 @@ import {
   L_HIP,
   L_KNEE,
   L_ANKLE,
+  R_ANKLE,
   L_HEEL,
 } from "../landmarks";
 
@@ -111,7 +112,9 @@ function createUprightSittingFrame(timestampMs: number): PoseFrame {
  */
 function createInvalidFramingPushupFrame(elbowAngleDeg: number, timestampMs: number): PoseFrame {
   const frame = createValidPushupFrame(elbowAngleDeg, timestampMs);
+  // Sembunyikan L_ANKLE dan R_ANKLE agar aturan framing satu-sisi untuk view "side" gagal
   frame.landmarks[L_ANKLE] = { x: 0.8, y: 1.6, z: 0, visibility: 0.2 };
+  frame.landmarks[R_ANKLE] = { x: 0.8, y: 1.6, z: 0, visibility: 0.2 };
   return frame;
 }
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { RepCounter, CounterUpdate } from "../rep-counter";
+import { LandmarkSmoother } from "../smoothing";
 import { PoseGate, GateResult } from "../gating";
 import {
   PUSHUP_RULESET,
@@ -237,6 +238,112 @@ describe("RepCounter PUSHUP_RULESET behavior", () => {
     }
 
     expect(lastUpdate.repsCount).toBe(0);
+  });
+
+  it("20. PUSH-UP Z OFFSET: siku memiliki z offset 0,3 -> rep tetap terhitung, tanpa pushup-depth / pushup-lockout", () => {
+    const counter = new RepCounter(PUSHUP_RULESET, "bw-pushup");
+    const smoother = new LandmarkSmoother(0.25);
+    let ts = START_TS_MS;
+
+    const pushWithElbowZ = (deg: number, t: number) => {
+      const raw = createPushupPoseFrame(deg, 0.5, t);
+      raw.landmarks[L_ELBOW] = { ...raw.landmarks[L_ELBOW], z: 0.3 };
+      const smoothed = smoother.smooth(raw.landmarks);
+      counter.update({
+        landmarks: smoothed,
+        rawLandmarks: raw.landmarks,
+        side: "left",
+        timestampMs: t,
+      });
+    };
+
+    for (let i = 0; i < 48; i++) {
+      pushWithElbowZ(PLANK_TOP_ELBOW_DEG, ts);
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    const cycleAngles = [
+      ...buildSmoothCycleAngles(PLANK_TOP_ELBOW_DEG, 90, 50),
+      ...Array.from({ length: 15 }, () => PLANK_TOP_ELBOW_DEG),
+    ];
+    for (const angle of cycleAngles) {
+      pushWithElbowZ(angle, ts);
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    const reps = counter.getCompletedReps();
+    expect(reps.length).toBe(1);
+    expect(reps[0].issues.map((i) => i.checkId)).not.toContain("pushup-depth");
+    expect(reps[0].issues.map((i) => i.checkId)).not.toContain("pushup-lockout");
+    expect(reps[0].score).toBe(100);
+  });
+
+  it("21. LOCKOUT DARI MENTAH: EMA 156 dengan puncak mentah 170 tanpa cue; puncak mentah 150 memicu pushup-lockout", () => {
+    const runLockoutScenario = (peakRawDeg: number) => {
+      resetViolationStreaks();
+      const counter = new RepCounter(PUSHUP_RULESET, "bw-pushup");
+      let ts = START_TS_MS;
+      for (let i = 0; i < 20; i++) {
+        const top = createPushupPoseFrame(170, 0.5, ts);
+        top.rawLandmarks = top.landmarks.map((p) => ({ ...p }));
+        counter.update(top);
+        ts += 100;
+      }
+      // Turun dan dasar (> 600 ms total sebelum naik melewati 155)
+      for (const a of [145, 115, 100, 88, 92, 110, 128, 142]) {
+        const f = createPushupPoseFrame(a, 0.5, ts);
+        f.rawLandmarks = f.landmarks.map((p) => ({ ...p }));
+        counter.update(f);
+        ts += 100;
+      }
+      // Simulasi EMA melintasi 156 sementara mentah bertahan di peakRawDeg
+      for (const smDeg of [148, 152, 156]) {
+        const sm = createPushupPoseFrame(smDeg, 0.5, ts);
+        const raw = createPushupPoseFrame(peakRawDeg, 0.5, ts);
+        counter.update({
+          ...sm,
+          rawLandmarks: raw.landmarks,
+        });
+        ts += 100;
+      }
+      return counter.getCompletedReps();
+    };
+
+    const reps170 = runLockoutScenario(170);
+    expect(reps170.length).toBe(1);
+    expect(reps170[0].issues.map((i) => i.checkId)).not.toContain("pushup-lockout");
+
+    const reps150 = runLockoutScenario(150);
+    expect(reps150.length).toBe(1);
+    expect(reps150[0].issues.map((i) => i.checkId)).toContain("pushup-lockout");
+  });
+
+  it("22. PIKE MEMAKAI PANJANG TUBUH: pinggul naik 4% panjang tubuh tidak memicu cue; 12% memicu pushup-hip-pike", () => {
+    // Dalam createPushupPoseFrame, bahu (0.2, 0.5) -> ankle (0.8, 0.5): bodyLength = 0.60, bodyHeight = 0 (clamp 0.1).
+    const runPikeCase = (hipRaiseRatioOfBodyLength: number) => {
+      resetViolationStreaks();
+      const counter = new RepCounter(PUSHUP_RULESET, "bw-pushup");
+      const hipY = 0.5 - hipRaiseRatioOfBodyLength * 0.6;
+      let ts = START_TS_MS;
+      for (let i = 0; i < 48; i++) {
+        counter.update(createPushupPoseFrame(PLANK_TOP_ELBOW_DEG, 0.5, ts));
+        ts += FRAME_INTERVAL_MS;
+      }
+      const cycleAngles = buildSmoothCycleAngles(PLANK_TOP_ELBOW_DEG, 90, 60);
+      for (const angle of cycleAngles) {
+        counter.update(createPushupPoseFrame(angle, hipY, ts));
+        ts += FRAME_INTERVAL_MS;
+      }
+      return counter.getCompletedReps();
+    };
+
+    const reps4Pct = runPikeCase(0.04);
+    expect(reps4Pct.length).toBe(1);
+    expect(reps4Pct[0].issues.map((i) => i.checkId)).not.toContain("pushup-hip-pike");
+
+    const reps12Pct = runPikeCase(0.12);
+    expect(reps12Pct.length).toBe(1);
+    expect(reps12Pct[0].issues.map((i) => i.checkId)).toContain("pushup-hip-pike");
   });
 });
 

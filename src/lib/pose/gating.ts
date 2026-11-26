@@ -82,23 +82,18 @@ export function checkStartPosition(
   landmarks: Landmark[] | null | undefined,
   side: "left" | "right",
   family: ExerciseFamily,
-  requiredLandmarks: number[]
+  requiredLandmarks: number[],
+  view?: RuleSet["view"]
 ): { ok: boolean; angle: number; reason?: string } {
-  if (!landmarks || landmarks.length === 0) {
-    return { ok: false, angle: 0, reason: "Tubuh tidak terdeteksi" };
-  }
-
-  // 1. Periksa visibilitas semua landmark wajib
-  for (const idx of requiredLandmarks) {
-    const lm = landmarks[idx];
-    if (!lm) {
-      return { ok: false, angle: 0, reason: "Mundur sedikit" };
-    }
-    const isVisible = lm.visibility === undefined || lm.visibility >= 0.5;
-    const inBounds = lm.x >= 0 && lm.x <= 1 && lm.y >= 0 && lm.y <= 1;
-    if (!isVisible || !inBounds) {
-      return { ok: false, angle: 0, reason: "Mundur sedikit" };
-    }
+  const framing = checkFraming(landmarks, requiredLandmarks, view);
+  if (!framing.ok) {
+    return {
+      ok: false,
+      angle: 0,
+      reason: framing.message.includes("Tubuh tidak terdeteksi")
+        ? "Tubuh tidak terdeteksi"
+        : "Mundur sedikit",
+    };
   }
 
   // 2. Jika family === "none", tidak ada syarat sudut
@@ -106,7 +101,7 @@ export function checkStartPosition(
     return { ok: true, angle: 0 };
   }
 
-  const joints = getSideJoints(landmarks, side);
+  const joints = getSideJoints(landmarks!, side);
   const shoulder = joints.shoulder;
   const ankle = joints.ankle;
 
@@ -180,6 +175,9 @@ export function resetRepCounterToIdle(counter: RepCounter): void {
   (counter as any).repStartTimeMs = 0;
   (counter as any).descentDurationMs = 0;
   (counter as any).minMetricValue = 180;
+  (counter as any).minRawMetricValue = undefined;
+  (counter as any).maxRawMetricValue = undefined;
+  (counter as any).rawMetricWindow = [];
   (counter as any).maxMetricValue = 0;
   (counter as any).currentRepIssues = [];
   (counter as any).activeCues = [];
@@ -331,12 +329,13 @@ export class PoseGate {
     this.poseLostStartTime = null;
 
     // 3. EVALUASI FRAMING & POSISI AWAL
-    const framing = checkFraming(frame!.landmarks, this.requiredLandmarks);
+    const framing = checkFraming(frame!.landmarks, this.requiredLandmarks, this.ruleSet.view);
     const posResult = checkStartPosition(
       frame!.landmarks,
       frame!.side,
       this.family,
-      this.requiredLandmarks
+      this.requiredLandmarks,
+      this.ruleSet.view
     );
     const isValid = framing.ok && posResult.ok;
 

@@ -18,6 +18,7 @@ export interface PoseFrame {
 
 export interface RepContext {
   bodyHeight: number;
+  bodyLength?: number;
   torsoLength: number;
   heelYBaseline: number;
   isCalibrated: boolean;
@@ -28,6 +29,7 @@ export interface RepContext {
   descentFromTopMs?: number;
   minMetricValue: number;
   minRawMetricValue?: number;
+  maxRawMetricValue?: number;
   maxDepthProxy?: number;
   maxMetricValue: number;
   repIndex: number;
