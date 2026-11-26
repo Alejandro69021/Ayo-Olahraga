@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, Camera, RefreshCw, Activity, Dumbbell } from "lucide-react";
 import { FormCoachSummary } from "@/components/form-coach/ResultSummary";
+import { EXERCISES_DATABASE } from "@/data/exercises";
 
 // Dynamic import CameraStage with ssr: false
 const CameraStage = dynamic(
@@ -26,47 +27,19 @@ interface DevExercise {
   id: string;
   name: string;
   category: string;
-  view: string;
+  view: "side" | "front";
+  viewLabel: string;
   cameraTip: string;
 }
 
-const DEV_EXERCISES: DevExercise[] = [
-  {
-    id: "bw-air-squat",
-    name: "Air Squat",
-    category: "Squat (Reps)",
-    view: "Samping",
-    cameraTip: "Letakkan HP setinggi pinggul, 2–3 meter di samping Anda, seluruh tubuh terlihat.",
-  },
-  {
-    id: "bw-pushup",
-    name: "Push-up",
-    category: "Push-up (Reps)",
-    view: "Samping",
-    cameraTip: "Letakkan HP di lantai atau sedikit terangkat di samping tubuh, terlihat dari kepala hingga kaki.",
-  },
-  {
-    id: "bw-plank",
-    name: "Plank",
-    category: "Plank (Hold)",
-    view: "Samping",
-    cameraTip: "Letakkan HP di samping sejajar badan, seluruh tubuh lurus terlihat.",
-  },
-  {
-    id: "bb-romanian-deadlift",
-    name: "Romanian Deadlift",
-    category: "Hinge (Reps)",
-    view: "Samping",
-    cameraTip: "Letakkan HP 2-3 meter di samping, panggul dan lutut terlihat jelas.",
-  },
-  {
-    id: "bb-reverse-lunges",
-    name: "Reverse Lunges",
-    category: "Split (Reps)",
-    view: "Samping",
-    cameraTip: "Letakkan HP di samping untuk memantau sudut lutut depan dan posisi tubuh.",
-  },
-];
+const DEV_EXERCISES: DevExercise[] = EXERCISES_DATABASE.filter((ex) => ex.formCoach).map((ex) => ({
+  id: ex.id,
+  name: ex.name,
+  category: `${ex.formCoach!.ruleSetId} (${ex.equipmentLabel})`,
+  view: ex.formCoach!.view,
+  viewLabel: ex.formCoach!.view === "front" ? "Depan" : "Samping",
+  cameraTip: ex.formCoach!.cameraTip,
+}));
 
 export default function CoachDevPage() {
   const [selectedExerciseId, setSelectedExerciseId] = useState<string>("bw-air-squat");
@@ -105,11 +78,11 @@ export default function CoachDevPage() {
                 FORM COACH DEV BENCH
               </h1>
               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-lime-400 text-black font-metric">
-                FASE 3
+                {DEV_EXERCISES.length} GERAKAN
               </span>
             </div>
             <p className="text-xs text-zinc-400">
-              Halaman pengujian aturan koreksi pose (Squat, Push-up, Plank) & verifikasi histeresis.
+              Halaman pengujian aturan koreksi pose seluruh katalog gerakan &amp; verifikasi PoseGate/histeresis.
             </p>
           </div>
         </div>
@@ -133,7 +106,7 @@ export default function CoachDevPage() {
               <Dumbbell className="w-4 h-4 text-lime-400" />
               <span>Pilih Gerakan Uji</span>
             </h2>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1">
               {DEV_EXERCISES.map((ex) => {
                 const isSelected = ex.id === selectedExerciseId;
                 return (
@@ -150,7 +123,7 @@ export default function CoachDevPage() {
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm text-white">{ex.name}</span>
                       <span className="text-[10px] font-metric uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
-                        {ex.view}
+                        {ex.viewLabel}
                       </span>
                     </div>
                     <span className="text-[11px] text-zinc-500 block mt-0.5">{ex.category}</span>
@@ -223,6 +196,8 @@ export default function CoachDevPage() {
             key={`${selectedExercise.id}-${stageKey}`}
             exerciseId={selectedExercise.id}
             exerciseName={selectedExercise.name}
+            view={selectedExercise.view}
+            cameraTip={selectedExercise.cameraTip}
             onClose={() => setStageKey((prev) => prev + 1)}
             onComplete={(summary) => setLastSummary(summary)}
           />

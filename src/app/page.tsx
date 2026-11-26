@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Play,
   CheckCircle2,
@@ -28,7 +29,8 @@ import {
   Wifi,
   WifiOff,
   Dumbbell,
-  Camera
+  Camera,
+  Calendar
 } from "lucide-react";
 import { BodyAnatomyMap, ExerciseAttributeValueEnum, MUSCLE_GROUPS } from "@/components/BodyAnatomyMap";
 import { TutorialModal } from "@/components/TutorialModal";
@@ -59,7 +61,12 @@ import {
   formatTrackerTargetLine,
   parseTargets,
   resolveExercisesFromQuery,
+  parseProgramSessionContext,
+  buildProgramBackHref,
+  type ProgramSessionContext,
 } from "@/components/program/session-link";
+import { getActivePlan } from "@/lib/program/storage";
+import type { ProgramPlan } from "@/lib/program/program-types";
 
 function buildInitialSets(
   exercises: ExerciseDetail[],
@@ -90,6 +97,7 @@ function buildInitialSets(
 }
 
 export default function HomePage() {
+  const router = useRouter();
   // Navigation / View Tabs: 'builder' | 'tools'
   const [activeTab, setActiveTab] = useState<"builder" | "tools">("builder");
 
@@ -125,6 +133,10 @@ export default function HomePage() {
   const [selectedWorkoutList, setSelectedWorkoutList] = useState<ExerciseDetail[]>([]);
   const skipNextFilterSyncRef = useRef<boolean>(false);
   const [programTargets, setProgramTargets] = useState<Record<string, ExerciseTargetSpec>>({});
+  const [programSessionContext, setProgramSessionContext] = useState<ProgramSessionContext>({
+    fromProgram: false,
+  });
+  const [activePlan, setActivePlan] = useState<ProgramPlan | null>(null);
 
   // Step 4: Live Gym Tracker State
   // { [exerciseId]: [{ id, setNumber, weight, reps, completed, isProgressive }] }
@@ -163,7 +175,13 @@ export default function HomePage() {
       skipNextFilterSyncRef.current = true;
       setSelectedWorkoutList(programExercises);
       setProgramTargets(parsedTargets);
+      setProgramSessionContext(parseProgramSessionContext(search));
     }
+
+    getActivePlan().then((plan) => {
+      if (cancelled) return;
+      setActivePlan(plan);
+    });
 
     getAllSessionsOffline().then((sessions) => {
       if (cancelled) return;
@@ -593,12 +611,23 @@ export default function HomePage() {
           </div>
 
           {/* Wizard Buat Program */}
+          {activePlan && (
+            <Link
+              href="/program"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 text-emerald-300 text-xs font-metric font-bold uppercase transition-colors"
+              title="Lihat jadwal program aktif"
+            >
+              <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+              <span>JADWAL</span>
+            </Link>
+          )}
           <Link
             href="/program/new"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-lime-400/15 hover:bg-lime-400/25 border border-lime-400/40 text-lime-300 text-xs font-metric font-bold uppercase transition-colors"
+            title="Susun program latihan baru (7 langkah)"
           >
             <Sparkles className="w-3.5 h-3.5 text-lime-400" />
-            <span>PROGRAM</span>
+            <span>BUAT PROGRAM</span>
           </Link>
 
           {/* Nutrition / Tools Switcher */}
@@ -967,20 +996,55 @@ export default function HomePage() {
           {currentStep === 4 && (
             <section className="space-y-4 animate-in fade-in duration-200 max-w-xl sm:max-w-2xl mx-auto w-full">
               {/* Tracker Top Bar: Exit button & Exercise counter */}
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-800 px-1">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(1)}
-                  className="px-3.5 py-1.5 bg-[#141414] hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-metric font-bold text-xs uppercase tracking-wider rounded-xl transition-colors flex items-center gap-1.5"
-                  title="Keluar dari sesi gym"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>KELUAR SESI</span>
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-800 px-1">
+                <div className="flex items-center gap-2">
+                  {programSessionContext.fromProgram ? (
+                    <>
+                      <Link
+                        href={buildProgramBackHref(programSessionContext)}
+                        className="px-3.5 py-1.5 bg-lime-400/15 hover:bg-lime-400/25 border border-lime-400/40 text-lime-300 font-metric font-bold text-xs uppercase tracking-wider rounded-xl transition-colors flex items-center gap-1.5"
+                        title="Kembali ke jadwal program"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5 text-lime-400" />
+                        <span>JADWAL PROGRAM</span>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProgramSessionContext({ fromProgram: false });
+                          setCurrentStep(1);
+                        }}
+                        className="px-3 py-1.5 bg-[#141414] hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-metric font-bold text-xs uppercase tracking-wider rounded-xl transition-colors flex items-center gap-1.5"
+                        title="Kembali ke menu latihan utama"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>MENU LATIHAN</span>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="px-3.5 py-1.5 bg-[#141414] hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-metric font-bold text-xs uppercase tracking-wider rounded-xl transition-colors flex items-center gap-1.5"
+                      title="Keluar dari sesi gym"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>KELUAR SESI</span>
+                    </button>
+                  )}
+                </div>
 
-                <div className="text-right">
+                <div className="text-right ml-auto">
                   <span className="text-[10px] font-black uppercase tracking-widest text-lime-400 flex items-center justify-end gap-1.5 font-metric">
-                    <span className="w-2 h-2 rounded-full bg-lime-400" /> SESI AKTIF
+                    <span className="w-2 h-2 rounded-full bg-lime-400" />
+                    {programSessionContext.fromProgram
+                      ? [
+                          programSessionContext.weekIndex ? `Minggu ${programSessionContext.weekIndex}` : null,
+                          programSessionContext.sessionLabel || "Program Aktif",
+                        ]
+                          .filter(Boolean)
+                          .join(" • ")
+                      : "SESI AKTIF"}
                   </span>
                   <span className="font-metric text-xs font-bold text-zinc-400">
                     Latihan {currentExerciseIndex + 1} dari {selectedWorkoutList.length}
@@ -1320,6 +1384,22 @@ export default function HomePage() {
       {/* End-of-Workout Shareable Summary Card Modal (No Browser Alert) */}
       <WorkoutSummaryModal
         session={summarySession}
+        programHref={programSessionContext.fromProgram ? buildProgramBackHref(programSessionContext) : null}
+        programSessionLabel={
+          programSessionContext.fromProgram
+            ? [
+                programSessionContext.weekIndex ? `Minggu ${programSessionContext.weekIndex}` : null,
+                programSessionContext.sessionLabel || null,
+              ]
+                .filter(Boolean)
+                .join(" • ") || null
+            : null
+        }
+        onGoToProgram={() => {
+          const targetHref = buildProgramBackHref(programSessionContext);
+          setSummarySession(null);
+          router.push(targetHref);
+        }}
         onClose={() => {
           setSummarySession(null);
           if (typeof window !== "undefined") {

@@ -17,6 +17,12 @@ export interface PlannedTargetInput {
   rir?: number;
 }
 
+export interface ProgramSessionContext {
+  fromProgram: boolean;
+  weekIndex?: number;
+  sessionLabel?: string;
+}
+
 function parseStrictInt(raw: string): number | null {
   if (!/^\d+$/.test(raw)) return null;
   const value = Number(raw);
@@ -38,9 +44,10 @@ function isValidTargetSpec(spec: ExerciseTargetSpec): boolean {
   );
 }
 
-/** Build the tracker route carrying planned exercise IDs and optional validated target specs. */
+/** Build the tracker route carrying planned exercise IDs, optional targets, and optional program context. */
 export function buildSessionTrackerHref(
-  exercises: readonly (string | PlannedTargetInput)[]
+  exercises: readonly (string | PlannedTargetInput)[],
+  context?: { weekIndex?: number; sessionLabel?: string }
 ): string {
   const uniqueIds: string[] = [];
   const targetTokens: string[] = [];
@@ -74,7 +81,45 @@ export function buildSessionTrackerHref(
   if (targetTokens.length > 0) {
     params.set("targets", targetTokens.join(","));
   }
+  if (context) {
+    params.set("from", "program");
+    if (typeof context.weekIndex === "number" && Number.isInteger(context.weekIndex) && context.weekIndex >= 1) {
+      params.set("week", String(context.weekIndex));
+    }
+    if (context.sessionLabel && context.sessionLabel.trim().length > 0) {
+      params.set("session", context.sessionLabel.trim());
+    }
+  }
   return `/?${params.toString()}`;
+}
+
+/** Parse program origin context from tracker URL query string. */
+export function parseProgramSessionContext(search: string): ProgramSessionContext {
+  const params = new URLSearchParams(search);
+  const fromParam = params.get("from");
+  const hasTargets = Boolean(params.get("targets"));
+  const rawWeek = params.get("week");
+  const parsedWeek = rawWeek ? parseStrictInt(rawWeek) : null;
+  const rawSession = params.get("session")?.trim();
+
+  const fromProgram = fromParam === "program" || hasTargets;
+  if (!fromProgram) {
+    return { fromProgram: false };
+  }
+
+  return {
+    fromProgram: true,
+    ...(parsedWeek !== null && parsedWeek >= 1 ? { weekIndex: parsedWeek } : {}),
+    ...(rawSession ? { sessionLabel: rawSession } : {}),
+  };
+}
+
+/** Build the return URL back to the program schedule page (preserving active week if known). */
+export function buildProgramBackHref(context?: ProgramSessionContext | null): string {
+  if (context?.weekIndex && context.weekIndex >= 1) {
+    return `/program?week=${context.weekIndex}`;
+  }
+  return "/program";
 }
 
 /** Resolve unique valid exercises from a URL search string (e.g. "?exercises=a,b"). */

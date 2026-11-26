@@ -13,6 +13,8 @@ import {
   Flame,
   Play,
   Plus,
+  Trash2,
+  HardDrive,
 } from "lucide-react";
 import { EXERCISES_DATABASE, type ExerciseDetail } from "@/data/exercises";
 import { EXERCISE_META } from "@/data/exercise-meta";
@@ -31,7 +33,7 @@ import {
   type PlannedWeek,
   type ProgramPlan,
 } from "@/lib/program/program-types";
-import { getActivePlan } from "@/lib/program/storage";
+import { deletePlan, getActivePlan } from "@/lib/program/storage";
 import {
   buildSessionTrackerHref,
   formatPlannedTarget,
@@ -49,6 +51,7 @@ export const ProgramView: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedWeekIndex, setSelectedWeekIndex] = useState<number>(1);
   const [showRationale, setShowRationale] = useState<boolean>(false);
+  const [confirmDelete, setConfirmDelete] = useState<boolean>(false);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
@@ -62,7 +65,17 @@ export const ProgramView: React.FC = () => {
         setPlan(loadedPlan);
         setOfflineSessions(sessions);
         if (loadedPlan && loadedPlan.weeks.length > 0) {
-          setSelectedWeekIndex(loadedPlan.weeks[0].weekIndex);
+          let initialWeek = loadedPlan.weeks[0].weekIndex;
+          if (typeof window !== "undefined") {
+            const weekParam = Number(new URLSearchParams(window.location.search).get("week"));
+            if (
+              Number.isInteger(weekParam) &&
+              loadedPlan.weeks.some((w) => w.weekIndex === weekParam)
+            ) {
+              initialWeek = weekParam;
+            }
+          }
+          setSelectedWeekIndex(initialWeek);
         }
       })
       .finally(() => {
@@ -122,9 +135,25 @@ export const ProgramView: React.FC = () => {
     tabRefs.current[nextIndex]?.focus();
   };
 
-  const handleStartSession = (exercises: PlannedExercise[]) => {
+  const handleStartSession = (exercises: PlannedExercise[], sessionLabel?: string) => {
     if (exercises.length === 0) return;
-    router.push(buildSessionTrackerHref(exercises));
+    router.push(
+      buildSessionTrackerHref(exercises, {
+        weekIndex: activeWeek?.weekIndex,
+        sessionLabel,
+      })
+    );
+  };
+
+  const handleDeletePlan = async () => {
+    if (!plan) return;
+    await deletePlan(plan.id);
+    const nextActive = await getActivePlan();
+    setPlan(nextActive);
+    setConfirmDelete(false);
+    if (nextActive && nextActive.weeks.length > 0) {
+      setSelectedWeekIndex(nextActive.weeks[0].weekIndex);
+    }
   };
 
   if (isLoading) {
@@ -181,15 +210,50 @@ export const ProgramView: React.FC = () => {
                 {plan.daysPerWeek} hari/minggu • {plan.mesocycleWeeks} minggu
               </span>
             </div>
+            <p className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 pt-0.5">
+              <HardDrive className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <span>Tersimpan lokal di perangkat ini (Offline PWA, tanpa login)</span>
+            </p>
           </div>
 
-          <Link
-            href="/program/new"
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-semibold text-zinc-200 transition-colors min-h-[44px]"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Buat Program Baru
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/program/new"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-semibold text-zinc-200 transition-colors min-h-[44px]"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Buat Program Baru
+            </Link>
+
+            {confirmDelete ? (
+              <div className="inline-flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleDeletePlan}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-zinc-950 text-xs font-bold transition-colors min-h-[44px]"
+                >
+                  Yakin Hapus
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="inline-flex items-center justify-center px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-semibold text-zinc-300 transition-colors min-h-[44px]"
+                >
+                  Batal
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-rose-500/15 border border-zinc-800 hover:border-rose-500/40 text-xs font-semibold text-zinc-400 hover:text-rose-300 transition-colors min-h-[44px]"
+                title="Hapus program dari perangkat ini"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Hapus
+              </button>
+            )}
+          </div>
         </div>
 
         {plan.warnings.length > 0 && (
@@ -301,7 +365,7 @@ export const ProgramView: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => handleStartSession(session.exercises)}
+                  onClick={() => handleStartSession(session.exercises, session.label)}
                   disabled={session.exercises.length === 0}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-bold text-sm transition-colors min-h-[44px]"
                 >

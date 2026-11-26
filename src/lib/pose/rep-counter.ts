@@ -504,6 +504,47 @@ export class RepCounter {
     return this.completedReps;
   }
 
+  public getLastCompletedRep(): RepResult | null {
+    return this.lastCompletedRep;
+  }
+
+  public getIsCalibrated(): boolean {
+    return this.isCalibrated;
+  }
+
+  public feedCalibrationFrame(frame: PoseFrame): void {
+    this.calibrateBaseline(frame);
+  }
+
+  public completeCalibration(): void {
+    this.isCalibrated = true;
+  }
+
+  public resetCurrentRepToIdle(): void {
+    this.phase = "idle";
+    this.repStartTimeMs = 0;
+    this.descentDurationMs = 0;
+    this.lastTopTimestampMs = undefined;
+    this.descentFromTopMs = undefined;
+    this.minMetricValue = 180;
+    this.minRawMetricValue = undefined;
+    this.maxRawMetricValue = undefined;
+    this.rawMetricWindow = [];
+    this.maxDepthProxy = undefined;
+    this.rawDepthProxyWindow = [];
+    this.bottomLandmarks = undefined;
+    this.maxMetricValue = 0;
+    this.currentRepIssues = [];
+    this.activeCues = [];
+  }
+
+  public markForRecalibration(): void {
+    this.isCalibrated = false;
+    this.firstTimestampMs = 0;
+    this.lastFrameTimestampMs = 0;
+    this.bodyLength = undefined;
+  }
+
   public getHoldResult(): HoldResult {
     return {
       totalHoldMs: this.totalHoldMs,
@@ -536,6 +577,7 @@ export class RepCounter {
     this.totalHoldMs = 0;
     this.cleanHoldMs = 0;
     this.holdIssues = [];
+    this.lastFrameTimestampMs = 0;
     this.bodyLength = undefined;
     this.firstTimestampMs = 0;
     this.isCalibrated = false;

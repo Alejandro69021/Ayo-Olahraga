@@ -62,8 +62,9 @@ const DEFAULT_REQUIRED_JOINTS = [
   R_ANKLE,
 ];
 
-const TARGET_FPS = 24;
-const FRAME_INTERVAL_MS = 1000 / TARGET_FPS;
+const TARGET_FPS = 30;
+// Sedikit di bawah 33.3ms agar layar 60Hz (tick ~16.67ms) konsisten berjalan di ~30 FPS, bukan jatuh ke 20 FPS
+const FRAME_INTERVAL_MS = 30;
 const POSE_SMOOTHING_ALPHA = 0.25;
 
 export const CameraStage: React.FC<CameraStageProps> = ({
@@ -121,13 +122,23 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   });
   const lastSessionStatusRef = useRef(sessionStatus);
 
-  // RuleSet, RepCounter, dan PoseGate
+  // RuleSet, RepCounter, dan PoseGate (inisialisasi malas agar constructor tidak terpanggil setiap render)
   const ruleSet = getRuleSetForExercise(exerciseId) || SQUAT_RULESET;
   const currentView: "side" | "front" =
     view || (ruleSet.view === "front" ? "front" : "side");
-  const counterRef = useRef<RepCounter>(new RepCounter(ruleSet, exerciseId));
-  const gateRef = useRef<PoseGate>(new PoseGate(ruleSet, exerciseId, counterRef.current));
-  const smootherRef = useRef<LandmarkSmoother>(new LandmarkSmoother(POSE_SMOOTHING_ALPHA));
+  const counterRef = useRef<RepCounter | null>(null);
+  if (counterRef.current === null) {
+    counterRef.current = new RepCounter(ruleSet, exerciseId);
+  }
+  const gateRef = useRef<PoseGate | null>(null);
+  if (gateRef.current === null) {
+    gateRef.current = new PoseGate(ruleSet, exerciseId, counterRef.current!);
+  }
+  const smootherRef = useRef<LandmarkSmoother | null>(null);
+  if (smootherRef.current === null) {
+    smootherRef.current = new LandmarkSmoother(POSE_SMOOTHING_ALPHA);
+  }
+  const initializedExerciseKeyRef = useRef<string>(`${exerciseId}:${ruleSet.id}`);
 
   const [counterState, setCounterState] = useState<CounterUpdate>({
     phase: "idle",
@@ -141,11 +152,19 @@ export const CameraStage: React.FC<CameraStageProps> = ({
     isCalibrated: false,
   });
 
-  // Re-inisialisasi counter & gate saat exerciseId berubah
+  // Re-inisialisasi counter & gate HANYA saat exerciseId / ruleSet benar-benar berubah
   useEffect(() => {
-    counterRef.current = new RepCounter(ruleSet, exerciseId);
-    gateRef.current = new PoseGate(ruleSet, exerciseId, counterRef.current);
-    smootherRef.current.reset();
+    const nextKey = `${exerciseId}:${ruleSet.id}`;
+    if (initializedExerciseKeyRef.current === nextKey) {
+      return;
+    }
+    initializedExerciseKeyRef.current = nextKey;
+    const nextCounter = new RepCounter(ruleSet, exerciseId);
+    counterRef.current = nextCounter;
+    gateRef.current = new PoseGate(ruleSet, exerciseId, nextCounter);
+    smootherRef.current?.reset();
+    lastRepIndexRef.current = 0;
+    setRepToast(null);
     const initialCounter: CounterUpdate = {
       phase: "idle",
       repsCount: 0,
@@ -272,7 +291,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   }, []);
 
   const handleStartFromGuide = () => {
-    smootherRef.current.reset();
+    smootherRef.current?.reset();
     if (!isFileSource) {
       startCamera();
     }
@@ -311,7 +330,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
 
   // Pasang stream kamera ke video element
   useEffect(() => {
-    smootherRef.current.reset();
+    smootherRef.current?.reset();
     if (!isFileSource && videoRef.current && stream) {
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch(() => {});
@@ -344,7 +363,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
     const videoTrack = streamRef.current ? streamRef.current.getVideoTracks()[0] : null;
     const isCameraConnected = isFile || (videoTrack ? (videoTrack.readyState === "live" && !videoTrack.muted) : false);
     if (!isCameraConnected) {
-      smootherRef.current.reset();
+      smootherRef.current?.reset();
     }
 
     if (
@@ -419,10 +438,10 @@ export const CameraStage: React.FC<CameraStageProps> = ({
             isCameraConnected && currentLandmarks && currentLandmarks.length > 0
           );
           if (!hasValidLandmarks) {
-            smootherRef.current.reset();
+            smootherRef.current?.reset();
           }
           const smoothedLandmarks = hasValidLandmarks
-            ? smootherRef.current.smooth(currentLandmarks!)
+            ? smootherRef.current!.smooth(currentLandmarks!)
             : null;
           const side = smoothedLandmarks ? pickVisibleSide(smoothedLandmarks) : "left";
           const frame: PoseFrame | null = smoothedLandmarks
@@ -435,9 +454,10 @@ export const CameraStage: React.FC<CameraStageProps> = ({
               }
             : null;
 
-          const gateResult = gateRef.current.processFrame(frame, {
+          const gateResult = gateRef.current!.processFrame(frame, {
             cameraConnected: isCameraConnected,
             stage: stageRef.current,
+            timestampMs: now,
           });
 
           // Update framing HANYA saat status ok atau teks pesan berubah
@@ -586,9 +606,10 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   const isMirrored = !isFileSource && facingMode === "user";
 
   const handleRestart = () => {
-    counterRef.current = new RepCounter(ruleSet, exerciseId);
-    gateRef.current = new PoseGate(ruleSet, exerciseId, counterRef.current);
-    smootherRef.current.reset();
+    const nextCounter = new RepCounter(ruleSet, exerciseId);
+    counterRef.current = nextCounter;
+    gateRef.current = new PoseGate(ruleSet, exerciseId, nextCounter);
+    smootherRef.current?.reset();
     const initialCounter: CounterUpdate = {
       phase: "idle",
       repsCount: 0,
@@ -602,12 +623,16 @@ export const CameraStage: React.FC<CameraStageProps> = ({
     };
     lastCounterStateRef.current = initialCounter;
     setCounterState(initialCounter);
-    setSessionStatus({
-      sessionState: "WAITING",
+    const resetStatus = {
+      sessionState: "WAITING" as const,
       statusMessage: "Mundur sedikit",
       framingOk: false,
       positionOk: false,
-    });
+    };
+    lastSessionStatusRef.current = resetStatus;
+    setSessionStatus(resetStatus);
+    lastRepIndexRef.current = 0;
+    setRepToast(null);
     lastHandledRepIndexRef.current = 0;
     continuousTrackingRef.current.clear();
     if (correctionTimerRef.current) {
@@ -1063,8 +1088,8 @@ export const CameraStage: React.FC<CameraStageProps> = ({
         <ResultSummary
           exerciseName={exerciseName}
           mode={ruleSet.mode}
-          reps={counterRef.current.getCompletedReps()}
-          holdResult={ruleSet.mode === "hold" ? counterRef.current.getHoldResult() : null}
+          reps={counterRef.current!.getCompletedReps()}
+          holdResult={ruleSet.mode === "hold" ? counterRef.current!.getHoldResult() : null}
           banner={ruleSet.banner}
           scored={ruleSet.scored}
           onRestart={handleRestart}

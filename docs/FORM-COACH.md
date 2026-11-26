@@ -5,15 +5,17 @@ Fitur **Form Coach** di Ayo-Olahraga mendeteksi postur tubuh pengguna secara rea
 ---
 
 ## 1. Cara Kerja
-1. **Inferensi On-Device**: Memanfaatkan `@mediapipe/tasks-vision` (model `PoseLandmarker Lite` berukuran ~5.5MB) yang dijalankan via WebAssembly offline dari `/mediapipe/wasm` dan `/models/pose_landmarker_lite.task`.
-2. **Setup & Hitung Mundur**: Pengguna melihat panduan posisi (4 langkah), lalu menekan "Mulai" yang memicu hitung mundur 5 detik untuk mengambil posisi profil samping, diikuti kalibrasi baseline postur selama 1,5 detik.
-3. **State Machine Repetisi**: `RepCounter` murni mendeteksi siklus gerak melalui tahapan `IDLE` $\rightarrow$ `DESCENDING` $\rightarrow$ `BOTTOM` $\rightarrow$ `ASCENDING` dengan ambang histeresis ganda dan filter durasi minimum (`minRepMs`) untuk mencegah bouncing akibat getaran sensor.
-4. **Evaluasi Biomekanika**: Sudut 3D dihitung menggunakan fungsi vektor murni (`angleAt`, `angleFromVertical`) pada landmark sisi tubuh yang paling dominan menghadap kamera.
-5. **Koreksi & Audio**: Umpan balik koreksi divalidasi dengan batas maksimal 2 pesan sekaligus, ditahan minimal 2,5 detik agar tidak berkedip, didukung sintesis suara opsional (`speechSynthesis` Bahasa Indonesia).
+1. **Inferensi On-Device**: Memanfaatkan `@mediapipe/tasks-vision` (model `PoseLandmarker Lite` berukuran ~5.5MB) yang dijalankan via WebAssembly offline dari `/mediapipe/wasm` dan `/models/pose_landmarker_lite.task` (target ~30 FPS).
+2. **Setup, Hitung Mundur & PoseGate**: Pengguna melihat panduan posisi (4 langkah), menekan "Mulai" untuk hitung mundur 5 detik, lalu `PoseGate` memvalidasi framing dan posisi awal (`WAITING` $\rightarrow$ `READY` selama 1,5 detik kalibrasi baseline $\rightarrow$ `ACTIVE`) sebelum repetisi dihitung.
+3. **State Machine Repetisi**: `RepCounter` murni mendeteksi siklus gerak melalui tahapan `IDLE` $\rightarrow$ `DESCENDING` $\rightarrow$ `BOTTOM` $\rightarrow$ `ASCENDING` dengan ambang histeresis ganda, jendela median metrik mentah, dan filter durasi minimum (`minRepMs`) untuk mencegah bouncing akibat getaran sensor.
+4. **Evaluasi Biomekanika 2D**: Sudut sendi dihitung menggunakan fungsi vektor 2D murni (`angleAt2D`, `angleFromVertical2D`) pada landmark sisi tubuh yang paling dominan menghadap kamera (menghindari noise sumbu `z` monokular).
+5. **Koreksi & Audio**: Menampilkan maksimal **1 pil koreksi** sekaligus di bagian bawah kamera (tampil 2 detik setelah repetisi bermasalah, atau saat pelanggaran continuous bertahan $\ge 1$ detik dengan cooldown 6 detik per pesan), didukung sintesis suara opsional (`speechSynthesis` Bahasa Indonesia).
 
 ---
 
-## 2. Aturan & Ambang Heuristik (`src/lib/pose/rules/config.ts`)
+## 2. Cakupan Aturan & Ambang Heuristik (`src/lib/pose/rules/config.ts`)
+
+Saat ini Form Coach mencakup seluruh **46 gerakan** di katalog aplikasi melalui **24 RuleSet** (Tier A, B, dan C — lihat matriks bukti dan batasan per gerakan di `src/data/form-coach-matrix.ts`). Contoh aturan inti:
 
 | Latihan | Metrik Utama | Aturan & Ambang Evaluasi | Cues Koreksi |
 |---|---|---|---|

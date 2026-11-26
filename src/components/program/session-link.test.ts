@@ -98,4 +98,20 @@ describe("session-link helpers", () => {
       "Target: 3 x 20-60 detik - RIR 3"
     );
   });
+
+  it("e. menyertakan dan mem-parse konteks program (from, week, session) serta buildProgramBackHref", async () => {
+    const { parseProgramSessionContext, buildProgramBackHref } = await import("./session-link");
+    const [exA] = EXERCISES_DATABASE;
+    const href = buildSessionTrackerHref([exA.id], { weekIndex: 2, sessionLabel: "Full Body B" });
+    const query = href.slice(href.indexOf("?"));
+    const ctx = parseProgramSessionContext(query);
+
+    expect(ctx).toEqual({
+      fromProgram: true,
+      weekIndex: 2,
+      sessionLabel: "Full Body B",
+    });
+    expect(buildProgramBackHref(ctx)).toBe("/program?week=2");
+    expect(buildProgramBackHref({ fromProgram: true })).toBe("/program");
+  });
 });

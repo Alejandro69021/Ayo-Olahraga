@@ -10,13 +10,18 @@ import {
   X,
   Zap,
   Flame,
-  Layers
+  Layers,
+  Calendar,
+  LayoutGrid
 } from "lucide-react";
 import { WorkoutSessionPayload } from "@/lib/offline-storage";
 
 interface WorkoutSummaryModalProps {
   session: WorkoutSessionPayload | null;
   onClose: () => void;
+  programHref?: string | null;
+  programSessionLabel?: string | null;
+  onGoToProgram?: () => void;
 }
 
 /**
@@ -26,6 +31,9 @@ interface WorkoutSummaryModalProps {
 export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   session,
   onClose,
+  programHref,
+  programSessionLabel,
+  onGoToProgram,
 }) => {
   const [copied, setCopied] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -214,20 +222,60 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
         </div>
 
         {/* Modal Action Buttons */}
-        <div className="p-4 sm:p-5 bg-[#080808] flex flex-col sm:flex-row items-center gap-2.5 border-t border-[#1C1C1C]">
-          <button
-            onClick={handleShareStory}
-            className="w-full sm:flex-1 py-3.5 px-4 rounded-xl font-metric font-extrabold text-sm uppercase tracking-wide flex items-center justify-center gap-2 bg-lime-400 hover:bg-lime-300 text-black active:scale-98 transition-all font-bold"
-          >
-            <Share2 className="w-4 h-4 stroke-[2.5]" />
-            {copied ? "TEKS TERSALIN!" : "BAGIKAN KE IG STORY"}
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full sm:w-auto py-3.5 px-6 rounded-xl font-metric font-bold text-xs uppercase tracking-wider text-gray-300 hover:text-white bg-[#141414] hover:bg-[#202020] border border-[#282828] transition-colors"
-          >
-            SELESAI
-          </button>
+        <div className="p-4 sm:p-5 bg-[#080808] flex flex-col gap-2.5 border-t border-[#1C1C1C]">
+          {programHref && onGoToProgram ? (
+            <>
+              {programSessionLabel && (
+                <div className="text-[11px] text-center text-zinc-400 font-sans">
+                  Selesai dari jadwal <span className="text-lime-300 font-semibold">{programSessionLabel}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={onGoToProgram}
+                className="w-full py-3.5 px-4 rounded-xl font-metric font-extrabold text-sm uppercase tracking-wide flex items-center justify-center gap-2 bg-lime-400 hover:bg-lime-300 text-black active:scale-98 transition-all"
+              >
+                <Calendar className="w-4 h-4 stroke-[2.5]" />
+                <span>LIHAT JADWAL PROGRAM</span>
+              </button>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="py-3 px-3 rounded-xl font-metric font-bold text-xs uppercase tracking-wider text-gray-200 hover:text-white bg-[#141414] hover:bg-[#202020] border border-[#282828] flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>MENU LATIHAN</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareStory}
+                  className="py-3 px-3 rounded-xl font-metric font-bold text-xs uppercase tracking-wider text-lime-300 hover:text-lime-200 bg-lime-400/10 hover:bg-lime-400/20 border border-lime-400/30 flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>{copied ? "TERSALIN!" : "BAGIKAN"}</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleShareStory}
+                className="w-full sm:flex-1 py-3.5 px-4 rounded-xl font-metric font-extrabold text-sm uppercase tracking-wide flex items-center justify-center gap-2 bg-lime-400 hover:bg-lime-300 text-black active:scale-98 transition-all font-bold"
+              >
+                <Share2 className="w-4 h-4 stroke-[2.5]" />
+                {copied ? "TEKS TERSALIN!" : "BAGIKAN KE IG STORY"}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full sm:w-auto py-3.5 px-6 rounded-xl font-metric font-bold text-xs uppercase tracking-wider text-gray-300 hover:text-white bg-[#141414] hover:bg-[#202020] border border-[#282828] transition-colors"
+              >
+                MENU LATIHAN
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

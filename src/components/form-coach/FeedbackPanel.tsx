@@ -39,7 +39,11 @@ export default function FeedbackPanel({
 
   // Audio feedback tersinkronisasi dengan pil koreksi aktif
   useEffect(() => {
-    if (!audioEnabled || !activeCue) return;
+    if (!activeCue) {
+      lastSpokenTextRef.current = "";
+      return;
+    }
+    if (!audioEnabled) return;
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
     const now = Date.now();

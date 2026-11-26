@@ -36,7 +36,6 @@ export const RULESET_FAMILY_MAP: Record<string, ExerciseFamily> = {
   "pushup": "horizontal",
   "pike-pushup": "horizontal",
   "plank": "horizontal",
-  "dip": "horizontal",
 
   // 2. Badan tegak (vertical): sudut badan dari vertikal < 25°
   "squat": "vertical",
@@ -54,6 +53,7 @@ export const RULESET_FAMILY_MAP: Record<string, ExerciseFamily> = {
   "ground-to-overhead": "vertical",
 
   // 3. Tanpa syarat sudut (hanya framing ok)
+  "dip": "none",
   "bridge": "none",
   "press-horizontal": "none",
   "prone-extension": "none",
@@ -103,13 +103,33 @@ export function checkStartPosition(
 
   const joints = getSideJoints(landmarks!, side);
   const shoulder = joints.shoulder;
+  const hip = joints.hip;
   const ankle = joints.ankle;
 
-  if (!shoulder || !ankle) {
+  const isAnkleRequired =
+    requiredLandmarks.includes(L_ANKLE) || requiredLandmarks.includes(R_ANKLE);
+  const isVisibleInBounds = (lm?: Landmark) =>
+    Boolean(
+      lm &&
+        (lm.visibility === undefined || lm.visibility >= 0.5) &&
+        lm.x >= 0 &&
+        lm.x <= 1 &&
+        lm.y >= 0 &&
+        lm.y <= 1
+    );
+
+  // Untuk keluarga vertikal yang hanya fokus tubuh atas (mata kaki tidak wajib/tidak tampak),
+  // gunakan garis bahu -> pinggul alih-alih mata kaki off-screen yang penuh noise.
+  const lowerRef =
+    family === "vertical" && (!isAnkleRequired || !isVisibleInBounds(ankle)) && isVisibleInBounds(hip)
+      ? hip
+      : ankle;
+
+  if (!shoulder || !lowerRef) {
     return { ok: false, angle: 0, reason: "Mundur sedikit" };
   }
 
-  const angle = angleFromVertical(shoulder, ankle);
+  const angle = angleFromVertical(shoulder, lowerRef);
 
   if (family === "horizontal") {
     // push-up, pike-pushup, plank, dip: badan hampir horizontal, sudut dari vertikal > 60°
@@ -171,30 +191,20 @@ export function shouldExpireCue(
  * Mereset status repetisi yang sedang berlangsung ke IDLE tanpa menghapus riwayat hitungan selesai.
  */
 export function resetRepCounterToIdle(counter: RepCounter): void {
-  (counter as any).phase = "idle";
-  (counter as any).repStartTimeMs = 0;
-  (counter as any).descentDurationMs = 0;
-  (counter as any).minMetricValue = 180;
-  (counter as any).minRawMetricValue = undefined;
-  (counter as any).maxRawMetricValue = undefined;
-  (counter as any).rawMetricWindow = [];
-  (counter as any).bottomLandmarks = undefined;
-  (counter as any).maxMetricValue = 0;
-  (counter as any).currentRepIssues = [];
-  (counter as any).activeCues = [];
+  counter.resetCurrentRepToIdle();
 }
 
 /**
  * Menandai counter agar melakukan kalibrasi ulang baseline tinggi tubuh.
  */
 export function markCounterForRecalibration(counter: RepCounter): void {
-  (counter as any).isCalibrated = false;
-  (counter as any).firstTimestampMs = 0;
+  counter.markForRecalibration();
 }
 
 export interface GateProcessOptions {
   cameraConnected?: boolean;
   stage?: "guide" | "countdown" | "calibrating" | "active";
+  timestampMs?: number;
 }
 
 export interface GateResult {
@@ -257,8 +267,38 @@ export class PoseGate {
   }
 
   public processFrame(frame: PoseFrame | null, options?: GateProcessOptions): GateResult {
-    const now = frame ? frame.timestampMs : Date.now();
+    const now = frame
+      ? frame.timestampMs
+      : options?.timestampMs ??
+        (typeof performance !== "undefined" ? performance.now() : Date.now());
     const cameraConnected = options?.cameraConnected ?? true;
+    const stage = options?.stage;
+
+    // 0. TAHAP PANDUAN / HITUNG MUNDUR: jangan mulai kalibrasi atau hitung repetisi
+    if (stage === "guide" || stage === "countdown") {
+      this.sessionState = "WAITING";
+      this.readyStartTime = null;
+      this.invalidStartTime = null;
+      this.poseLostStartTime = null;
+      this.trackedCues.clear();
+      const hasPosesPreview = Boolean(frame && frame.landmarks && frame.landmarks.length > 0);
+      const framing: FramingResult = hasPosesPreview
+        ? checkFraming(frame!.landmarks, this.requiredLandmarks, this.ruleSet.view)
+        : {
+            ok: false,
+            missing: [...this.requiredLandmarks],
+            message: "Menyiapkan posisi...",
+          };
+      return {
+        canProcess: false,
+        framing,
+        poseDetected: hasPosesPreview,
+        statusMessage: "",
+        counterUpdate: this.createIdleCounterUpdate(),
+        sessionState: "WAITING",
+        positionOk: false,
+      };
+    }
 
     // 1. KAMERA TERPUTUS
     if (!cameraConnected) {
@@ -370,7 +410,7 @@ export class PoseGate {
       this.sessionState = "READY";
       this.readyStartTime = now;
       // Feed kalibrasi baseline saat posisi awal mulai tertahan
-      (this.counter as any).calibrateBaseline?.(frame!);
+      this.counter.feedCalibrationFrame(frame!);
 
       return {
         canProcess: false,
@@ -411,7 +451,7 @@ export class PoseGate {
       }
 
       // Masih valid di fase READY: kalibrasi baseline
-      (this.counter as any).calibrateBaseline?.(frame!);
+      this.counter.feedCalibrationFrame(frame!);
       const readyDuration = now - (this.readyStartTime ?? now);
 
       if (readyDuration < 1500) {
@@ -429,7 +469,7 @@ export class PoseGate {
       // readyDuration >= 1500 ms: Kalibrasi selesai! Masuk ke ACTIVE!
       this.sessionState = "ACTIVE";
       this.invalidStartTime = null;
-      (this.counter as any).isCalibrated = true;
+      this.counter.completeCalibration();
       // Lanjut pemrosesan ACTIVE di bawah
     }
 
@@ -566,10 +606,10 @@ export class PoseGate {
       currentScore: this.ruleSet.mode === "hold" ? (holdResult?.score ?? 100) : currentScore,
       activeCues: [],
       activeIssues: [],
-      lastCompletedRep: (this.counter as any).lastCompletedRep ?? null,
+      lastCompletedRep: this.counter.getLastCompletedRep(),
       holdTimeSec: holdResult ? Math.round(holdResult.totalHoldMs / 1000) : 0,
       cleanHoldSec: holdResult ? Math.round(holdResult.cleanHoldMs / 1000) : 0,
-      isCalibrated: (this.counter as any).isCalibrated ?? false,
+      isCalibrated: this.counter.getIsCalibrated(),
     };
   }
 }

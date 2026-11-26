@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BarChart3, CalendarDays, Dumbbell } from "lucide-react";
+import { BarChart3, CalendarDays, Dumbbell, Play } from "lucide-react";
+import { buildSessionTrackerHref } from "@/components/program/session-link";
 import {
   getAllSessionsOffline,
   type WorkoutSessionPayload,
@@ -47,6 +48,19 @@ export const VolumeChart: React.FC = () => {
       plan.weeks[0]
     );
   }, [plan, selectedWeekIndex]);
+
+  const firstScheduledSession = useMemo(() => {
+    if (!activeWeek) return null;
+    return activeWeek.sessions.find((session) => session.exercises.length > 0) ?? null;
+  }, [activeWeek]);
+
+  const startSessionHref = useMemo(() => {
+    if (!firstScheduledSession) return "/";
+    return buildSessionTrackerHref(firstScheduledSession.exercises, {
+      weekIndex: activeWeek?.weekIndex,
+      sessionLabel: firstScheduledSession.label,
+    });
+  }, [firstScheduledSession, activeWeek]);
 
   const summary = useMemo(
     () =>
@@ -131,12 +145,22 @@ export const VolumeChart: React.FC = () => {
               Selesaikan minimal satu set di pelacak agar set efektif mingguan per otot dapat dihitung.
             </p>
           </div>
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-semibold text-white transition-colors min-h-[40px]"
-          >
-            Buka Pelacak
-          </Link>
+          {firstScheduledSession ? (
+            <Link
+              href={startSessionHref}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition-colors min-h-[40px]"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Mulai Sesi: {firstScheduledSession.label}</span>
+            </Link>
+          ) : (
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-xs font-semibold text-white transition-colors min-h-[40px]"
+            >
+              Mulai Latihan Bebas
+            </Link>
+          )}
         </div>
       ) : !summary.hasLogsInWindow ? (
         <div className="py-6 text-center space-y-2">

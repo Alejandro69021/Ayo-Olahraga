@@ -6,9 +6,7 @@ import {
   CheckResult,
 } from "./types";
 import {
-  angleAt,
   angleAt2D,
-  angleFromVertical,
   angleFromVertical2D,
   pickVisibleSide,
 } from "../geometry";
@@ -480,7 +478,7 @@ export const PLANK_HIP_SAG_CHECK: FormCheck = {
     if (!shoulder || !hip || !ankle) return { ok: true, value: 180, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    const bodyAngle = angleAt(shoulder, hip, ankle);
+    const bodyAngle = angleAt2D(shoulder, hip, ankle);
     const dx = ankle.x - shoulder.x;
     const expectedY =
       Math.abs(dx) > 0.001
@@ -621,7 +619,7 @@ export const LUNGE_TRUNK_CHECK: FormCheck = {
     if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    const trunkLean = angleFromVertical(shoulder, hip);
+    const trunkLean = angleFromVertical2D(shoulder, hip);
     if (trunkLean > 40) {
       return {
         ok: false,
@@ -684,7 +682,7 @@ export const SPLIT_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.hip || !joints.knee || !joints.ankle) return 180;
-      return angleAt(joints.hip, joints.knee, joints.ankle);
+      return angleAt2D(joints.hip, joints.knee, joints.ankle);
     },
     upThreshold: 160, // heuristik, toleransi ±10–15°
     downThreshold: 120, // heuristik, toleransi ±10–15°
@@ -875,7 +873,7 @@ const BALLISTIC_HIP_LOCKOUT_CHECK: FormCheck = {
     const { shoulder, hip, knee } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip || !knee) return { ok: true, value: 180, cue: "" };
 
-    const hipAngle = angleAt(shoulder, hip, knee);
+    const hipAngle = angleAt2D(shoulder, hip, knee);
     if (hipAngle < 165) {
       return {
         ok: false,
@@ -898,7 +896,7 @@ const BALLISTIC_NO_LEAN_BACK_CHECK: FormCheck = {
     const { shoulder, hip } = getSideJoints(frame.landmarks, frame.side);
     if (!shoulder || !hip) return { ok: true, value: 0, cue: "" };
 
-    const leanAngle = angleFromVertical(shoulder, hip);
+    const leanAngle = angleFromVertical2D(shoulder, hip);
     const isLeaningBack = shoulder.x < hip.x - 0.04 && leanAngle > 10;
     if (isLeaningBack) {
       return {
@@ -998,7 +996,7 @@ export const HINGE_BALLISTIC_RULESET: RuleSet = {
       recordBallisticFrame(frame.timestampMs);
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.hip || !joints.knee) return 180;
-      return angleAt(joints.shoulder, joints.hip, joints.knee);
+      return angleAt2D(joints.shoulder, joints.hip, joints.knee);
     },
     upThreshold: 160, // heuristik, toleransi ±10–15° (penyelesaian repetisi; lockout penuh dicek pada 165°)
     downThreshold: 120, // heuristik, toleransi ±10–15°
@@ -1026,7 +1024,7 @@ export const CALF_STRAIGHT_KNEE_CHECK: FormCheck = {
     if (!hip || !knee || !ankle) return { ok: true, value: 180, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    const kneeAngle = angleAt(hip, knee, ankle);
+    const kneeAngle = angleAt2D(hip, knee, ankle);
     const isViolating = kneeAngle < 165;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -1127,7 +1125,7 @@ export const FULL_HIP_EXT_CHECK: FormCheck = {
     if (!shoulder || !hip || !knee) return { ok: true, value: 180, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    const hipAngle = angleAt(shoulder, hip, knee);
+    const hipAngle = angleAt2D(shoulder, hip, knee);
     if (hipAngle < 165) {
       return {
         ok: false,
@@ -1188,7 +1186,7 @@ export const BRIDGE_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.hip || !joints.knee) return 180;
-      return angleAt(joints.shoulder, joints.hip, joints.knee);
+      return angleAt2D(joints.shoulder, joints.hip, joints.knee);
     },
     upThreshold: 160, // heuristik, toleransi ±10–15°
     downThreshold: 140, // heuristik, toleransi ±10–15°
@@ -1271,7 +1269,7 @@ export const HANGING_CORE_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.hip || !joints.knee) return 180;
-      return angleAt(joints.shoulder, joints.hip, joints.knee);
+      return angleAt2D(joints.shoulder, joints.hip, joints.knee);
     },
     upThreshold: 160, // heuristik, toleransi ±10–15°
     downThreshold: 130, // heuristik, toleransi ±10–15°
@@ -1324,7 +1322,7 @@ export const OHP_LEAN_BACK_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Batang tubuh condong ke belakang > 12° dari vertikal
-    const trunkLean = angleFromVertical(shoulder, hip);
+    const trunkLean = angleFromVertical2D(shoulder, hip);
     const nose = frame.landmarks[NOSE];
     const isFacingLeft = nose ? nose.x < hip.x : frame.side === "left";
     const isLeaningBack = isFacingLeft
@@ -1354,7 +1352,7 @@ export const PRESS_LOCKOUT_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // siku di atas < 160
-    const elbowAngle = angleAt(shoulder, elbow, wrist);
+    const elbowAngle = angleAt2D(shoulder, elbow, wrist);
     if (elbowAngle < 160) {
       return {
         ok: false,
@@ -1387,7 +1385,7 @@ export const PRESS_VERTICAL_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 155, // heuristik, toleransi ±10–15° (rep selesai; lockout penuh dicek pada 160°)
     downThreshold: 90, // heuristik, toleransi ±10–15°
@@ -1416,7 +1414,7 @@ export const ROW_TRUNK_STABLE_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Sudut batang tubuh berubah > 15° dari baseline kalibrasi
-    const currentLean = angleFromVertical(shoulder, hip);
+    const currentLean = angleFromVertical2D(shoulder, hip);
     if (rowTrunkBaseline === null && ctx.isCalibrated) {
       rowTrunkBaseline = currentLean;
     }
@@ -1447,7 +1445,7 @@ export const ROW_NO_MOMENTUM_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Variasi sudut batang tubuh selama fase tarik (descending) > 10°
-    const currentLean = angleFromVertical(shoulder, hip);
+    const currentLean = angleFromVertical2D(shoulder, hip);
     let isViolating = false;
     let variation = 0;
 
@@ -1524,7 +1522,7 @@ export const ROW_RULESET: RuleSet = {
           : joints.elbow.x < joints.shoulder.x - 0.02;
         if (passed) rowElbowPassedBack = true;
       }
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 150, // heuristik, toleransi ±10–15°
     downThreshold: 100, // heuristik, toleransi ±10–15°
@@ -1553,7 +1551,7 @@ export const PULL_ROM_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Di bawah, siku < 150 -> cue "Turun penuh"
-    const elbowAngle = angleAt(shoulder, elbow, wrist);
+    const elbowAngle = angleAt2D(shoulder, elbow, wrist);
     if (elbowAngle < 150) {
       return {
         ok: false,
@@ -1630,7 +1628,7 @@ export const PULL_VERTICAL_RULESET: RuleSet = {
       if (nose && joints.wrist && nose.y <= joints.wrist.y + 0.03) {
         pullChinPassedBar = true;
       }
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 150, // heuristik, toleransi ±10–15°
     downThreshold: 90, // heuristik, toleransi ±10–15°
@@ -1698,7 +1696,7 @@ export const PIKE_HIP_HIGH_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // sudut bahu–pinggul–lutut > 120 → cue dari matriks
-    const hipAngle = angleAt(shoulder, hip, knee);
+    const hipAngle = angleAt2D(shoulder, hip, knee);
     const isViolating = hipAngle > 120;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -1757,7 +1755,7 @@ export const PIKE_PUSHUP_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 155, // heuristik, toleransi ±10–15°
     downThreshold: 120, // heuristik, toleransi ±10–15° (margin >= 15° di atas ambang cek 100)
@@ -1850,7 +1848,7 @@ export const DIP_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 155, // heuristik, toleransi ±10–15°
     downThreshold: 100, // heuristik, toleransi ±10–15°
@@ -1891,8 +1889,8 @@ export const PRESS_SYMMETRY_CHECK: FormCheck = {
     }
 
     // heuristik, toleransi ±10–15°
-    const leftAngle = angleAt(lShoulder, lElbow, lWrist);
-    const rightAngle = angleAt(rShoulder, rElbow, rWrist);
+    const leftAngle = angleAt2D(lShoulder, lElbow, lWrist);
+    const rightAngle = angleAt2D(rShoulder, rElbow, rWrist);
     const diff = Math.abs(leftAngle - rightAngle);
     const isViolating = diff > 20;
 
@@ -2005,7 +2003,7 @@ export const PRESS_HORIZONTAL_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 155, // heuristik, toleransi ±10–15°
     downThreshold: 100, // heuristik, toleransi ±10–15°
@@ -2060,7 +2058,7 @@ export const CURL_NO_BODY_SWING_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Bahu bergeser horizontal / ayunan badan saat mengangkat (lean angle > 15°)
-    const trunkLean = angleFromVertical(shoulder, hip);
+    const trunkLean = angleFromVertical2D(shoulder, hip);
     const isViolating = ctx.currentPhase !== "idle" && trunkLean > 15;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -2095,7 +2093,7 @@ export const CURL_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 150, // heuristik, toleransi ±10–15°
     downThreshold: 95, // heuristik, toleransi ±10–15°
@@ -2199,7 +2197,7 @@ export const RAISE_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.hip || !joints.shoulder || !joints.wrist) return 180;
-      const angle = angleAt(joints.hip, joints.shoulder, joints.wrist);
+      const angle = angleAt2D(joints.hip, joints.shoulder, joints.wrist);
       return Math.max(0, 180 - angle);
     },
     upThreshold: 150, // heuristik, toleransi ±10–15°
@@ -2228,7 +2226,7 @@ export const TRICEPS_UPPER_ARM_FIXED_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Lengan atas tidak boleh berayun maju-mundur > 25° dari vertikal
-    const armLean = angleFromVertical(shoulder, elbow);
+    const armLean = angleFromVertical2D(shoulder, elbow);
     const isViolating = ctx.currentPhase !== "idle" && armLean > 25;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -2253,7 +2251,7 @@ export const TRICEPS_PRESS_LOCKOUT_CHECK: FormCheck = {
     if (!shoulder || !elbow || !wrist) return { ok: true, value: 180, cue: "" };
 
     // heuristik, toleransi ±10–15°
-    const elbowAngle = angleAt(shoulder, elbow, wrist);
+    const elbowAngle = angleAt2D(shoulder, elbow, wrist);
     if (elbowAngle < 155) {
       return {
         ok: false,
@@ -2285,7 +2283,7 @@ export const TRICEPS_EXT_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 150, // heuristik, toleransi ±10–15° (memungkinkan rep selesai saat lockout < 155)
     downThreshold: 95, // heuristik, toleransi ±10–15°
@@ -2314,7 +2312,7 @@ export const PRONE_NECK_NEUTRAL_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Leher hiperekstensi (mendongak berlebihan ke atas) saat sudut hidung-bahu-pinggul < 135°
-    const angle = angleAt(nose, shoulder, hip);
+    const angle = angleAt2D(nose, shoulder, hip);
     const isViolating = angle < 135;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -2448,7 +2446,7 @@ export const CARRY_TRUNK_ERECT_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Tubuh condong ke depan atau ke belakang > 15° dari sumbu vertikal
-    const lean = angleFromVertical(shoulder, hip);
+    const lean = angleFromVertical2D(shoulder, hip);
     const isViolating = lean > 15;
 
     // hanya memicu koreksi bila pelanggaran konsisten >= 3 frame
@@ -2540,7 +2538,7 @@ export const KETTLEBELL_OTHER_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.shoulder || !joints.elbow || !joints.wrist) return 180;
-      return angleAt(joints.shoulder, joints.elbow, joints.wrist);
+      return angleAt2D(joints.shoulder, joints.elbow, joints.wrist);
     },
     upThreshold: 155, // heuristik, toleransi ±10–15°
     downThreshold: 105, // heuristik, toleransi ±10–15°
@@ -2567,7 +2565,7 @@ export const OVERHEAD_ARMS_CHECK: FormCheck = {
 
     // heuristik, toleransi ±10–15°
     // Lengan tidak boleh condong jatuh ke depan (sudut dari vertikal > 30° atau pergelangan di bawah bahu)
-    const armLean = angleFromVertical(wrist, shoulder);
+    const armLean = angleFromVertical2D(wrist, shoulder);
     const isDropped = wrist.y >= shoulder.y;
     const isViolating = armLean > 30 || isDropped;
 
@@ -2608,7 +2606,12 @@ export const SQUAT_OVERHEAD_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.hip || !joints.knee || !joints.ankle) return 180;
-      return angleAt(joints.hip, joints.knee, joints.ankle);
+      return angleAt2D(joints.hip, joints.knee, joints.ankle);
+    },
+    depthProxy: (landmarks: Landmark[], side?: "left" | "right"): number => {
+      const joints = getSideJoints(landmarks, side ?? pickVisibleSide(landmarks));
+      if (!joints.hip || !joints.knee) return -1;
+      return joints.hip.y - joints.knee.y;
     },
     upThreshold: 160, // heuristik, toleransi ±10–15°
     downThreshold: 150, // heuristik, toleransi ±10–15°
@@ -2650,7 +2653,7 @@ export const GROUND_TO_OVERHEAD_RULESET: RuleSet = {
     metric: (frame: PoseFrame): number => {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.hip || !joints.knee || !joints.ankle) return 180;
-      return angleAt(joints.hip, joints.knee, joints.ankle);
+      return angleAt2D(joints.hip, joints.knee, joints.ankle);
     },
     upThreshold: 160, // heuristik, toleransi ±10–15°
     downThreshold: 145, // heuristik, toleransi ±10–15°

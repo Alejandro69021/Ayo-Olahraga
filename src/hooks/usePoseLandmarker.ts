@@ -27,37 +27,40 @@ async function getOrCreateLandmarker(): Promise<PoseLandmarker> {
   }
 
   landmarkerPromise = (async () => {
-    // Muat WebAssembly offline dari direktori publik lokal
-    const vision = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
-
-    let instance: PoseLandmarker;
     try {
-      // 1. Coba delegasi GPU untuk performa real-time maksimal
-      instance = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: "/models/pose_landmarker_lite.task",
-          delegate: "GPU",
-        },
-        runningMode: "VIDEO",
-        numPoses: 1,
-      });
-      cachedDelegate = "GPU";
-    } catch {
-      // 2. Fallback aman ke CPU jika perangkat tidak mendukung akselerasi GPU
-      instance = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: "/models/pose_landmarker_lite.task",
-          delegate: "CPU",
-        },
-        runningMode: "VIDEO",
-        numPoses: 1,
-      });
-      cachedDelegate = "CPU";
-    }
+      // Muat WebAssembly offline dari direktori publik lokal
+      const vision = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
 
-    cachedLandmarker = instance;
-    landmarkerPromise = null;
-    return instance;
+      let instance: PoseLandmarker;
+      try {
+        // 1. Coba delegasi GPU untuk performa real-time maksimal
+        instance = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "/models/pose_landmarker_lite.task",
+            delegate: "GPU",
+          },
+          runningMode: "VIDEO",
+          numPoses: 1,
+        });
+        cachedDelegate = "GPU";
+      } catch {
+        // 2. Fallback aman ke CPU jika perangkat tidak mendukung akselerasi GPU
+        instance = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "/models/pose_landmarker_lite.task",
+            delegate: "CPU",
+          },
+          runningMode: "VIDEO",
+          numPoses: 1,
+        });
+        cachedDelegate = "CPU";
+      }
+
+      cachedLandmarker = instance;
+      return instance;
+    } finally {
+      landmarkerPromise = null;
+    }
   })();
 
   return landmarkerPromise;

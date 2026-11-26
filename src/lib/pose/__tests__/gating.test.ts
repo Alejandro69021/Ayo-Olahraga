@@ -4,7 +4,12 @@ import {
   shouldExpireCue,
   TrackedCue,
 } from "../gating";
-import { SQUAT_RULESET, PUSHUP_RULESET } from "../rules/config";
+import {
+  SQUAT_RULESET,
+  PUSHUP_RULESET,
+  DIP_RULESET,
+  CURL_RULESET,
+} from "../rules/config";
 import { PoseFrame } from "../rules/types";
 import {
   Landmark,
@@ -433,6 +438,75 @@ describe("Logika Gerbang Pose & Umur Koreksi (gating.ts)", () => {
       expect(res.counterUpdate.activeCues).toEqual([]);
       expect(res.counterUpdate.activeIssues).toEqual([]);
       expect(res.counterUpdate.phase).toBe("idle");
+    });
+  });
+
+  describe("Regresi Stage, Dip, Upper-Body Vertical, & Monotonic Timestamp", () => {
+    it("tidak masuk READY/ACTIVE dan tidak menghitung rep saat stage === 'countdown'", () => {
+      const gate = new PoseGate(PUSHUP_RULESET, "bw-pushup");
+
+      let t = 1000;
+      for (const angle of [170, 170, 140, 90, 140, 170]) {
+        t += 600;
+        const res = gate.processFrame(createValidPushupFrame(angle, t), {
+          cameraConnected: true,
+          stage: "countdown",
+          timestampMs: t,
+        });
+        expect(res.canProcess).toBe(false);
+        expect(res.sessionState).toBe("WAITING");
+        expect(res.counterUpdate.repsCount).toBe(0);
+      }
+
+      expect(gate.getCounter().getCompletedReps().length).toBe(0);
+    });
+
+    it("DIP_RULESET tidak mensyaratkan posisi horizontal push-up atau ankle terlihat", () => {
+      const gate = new PoseGate(DIP_RULESET, "bw-dips");
+      expect(gate.getFamily()).toBe("none");
+
+      const frame = createUprightSittingFrame(1000);
+      // Sembunyikan ankle karena DIP_RULESET hanya memantau tubuh atas
+      frame.landmarks[L_ANKLE] = { x: 0.5, y: 1.4, z: 0, visibility: 0.1 };
+      frame.landmarks[R_ANKLE] = { x: 0.5, y: 1.4, z: 0, visibility: 0.1 };
+
+      const r1 = gate.processFrame(frame, { stage: "active", timestampMs: 1000 });
+      expect(r1.sessionState).toBe("READY");
+      expect(r1.positionOk).toBe(true);
+
+      const frame2 = { ...frame, timestampMs: 2600 };
+      const r2 = gate.processFrame(frame2, { stage: "active", timestampMs: 2600 });
+      expect(r2.sessionState).toBe("ACTIVE");
+      expect(r2.canProcess).toBe(true);
+    });
+
+    it("CURL_RULESET (vertical tubuh atas) memakai bahu->pinggul bila ankle di luar frame", () => {
+      const gate = new PoseGate(CURL_RULESET, "db-bicep-curl");
+      const frame = createUprightSittingFrame(1000);
+      // Ankle off-screen dengan koordinat x horizontal ekstrem yang sebelumnya merusak sudut
+      frame.landmarks[L_ANKLE] = { x: 1.8, y: 0.5, z: 0, visibility: 0.1 };
+      frame.landmarks[R_ANKLE] = { x: 1.8, y: 0.5, z: 0, visibility: 0.1 };
+
+      const r1 = gate.processFrame(frame, { stage: "active", timestampMs: 1000 });
+      expect(r1.sessionState).toBe("READY");
+      expect(r1.positionOk).toBe(true);
+    });
+
+    it("pose hilang menggunakan timestampMs monotonik secara konsisten (<=500ms vs >500ms)", () => {
+      const gate = new PoseGate(SQUAT_RULESET, "bw-air-squat");
+
+      gate.processFrame(createValidSquatFrame(170, 1000), { stage: "active", timestampMs: 1000 });
+      gate.processFrame(createValidSquatFrame(170, 2600), { stage: "active", timestampMs: 2600 });
+      expect(gate.getSessionState()).toBe("ACTIVE");
+
+      // Hilang 300ms: masih ACTIVE
+      const rShort = gate.processFrame(null, { cameraConnected: true, stage: "active", timestampMs: 2900 });
+      expect(rShort.sessionState).toBe("ACTIVE");
+
+      // Hilang > 500ms (total 600ms sejak 2900): kembali ke WAITING
+      const rLong = gate.processFrame(null, { cameraConnected: true, stage: "active", timestampMs: 3500 });
+      expect(rLong.sessionState).toBe("WAITING");
+      expect(rLong.statusMessage).toBe("Tubuh tidak terdeteksi");
     });
   });
 });
