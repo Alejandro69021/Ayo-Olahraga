@@ -7,7 +7,11 @@ import {
   IssueItem,
 } from "./rules/types";
 import { Landmark } from "./landmarks";
-import { getSideJoints } from "./rules/config";
+import {
+  getSideJoints,
+  resetHingeTracking,
+  resetViolationStreaks,
+} from "./rules/config";
 import { calculateRepScore, calculateHoldScore } from "./scoring";
 
 export interface CounterUpdate {
@@ -64,6 +68,8 @@ export class RepCounter {
   constructor(ruleSet: RuleSet, exerciseId: string) {
     this.ruleSet = ruleSet;
     this.exerciseId = exerciseId;
+    resetHingeTracking();
+    resetViolationStreaks();
   }
 
   /**
@@ -303,9 +309,13 @@ export class RepCounter {
   ) {
     const { minRepMs } = this.ruleSet.counter;
     const duration = frame.timestampMs - this.repStartTimeMs;
+    const repDurationForFilter =
+      this.lastTopTimestampMs !== undefined
+        ? frame.timestampMs - this.lastTopTimestampMs
+        : duration;
 
-    // Histeresis filter: Abaikan siklus yang terlalu singkat (< minRepMs)
-    if (duration >= minRepMs) {
+    // Histeresis filter: ukur dari posisi atas terakhir (>= upThreshold), fallback ke downThreshold
+    if (repDurationForFilter >= minRepMs) {
       // Evaluasi aturan fase top (misal ekstensi siku)
       const topCtx = this.createRepContext(frame);
       for (const check of this.ruleSet.checks) {
@@ -531,5 +541,7 @@ export class RepCounter {
     this.bodyLength = undefined;
     this.firstTimestampMs = 0;
     this.isCalibrated = false;
+    resetHingeTracking();
+    resetViolationStreaks();
   }
 }
