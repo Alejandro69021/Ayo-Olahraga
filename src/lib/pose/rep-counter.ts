@@ -28,9 +28,13 @@ export class RepCounter {
   private phase: "idle" | "descending" | "bottom" | "ascending" = "idle";
   private repStartTimeMs: number = 0;
   private descentDurationMs: number = 0;
+  private lastTopTimestampMs: number | undefined = undefined;
+  private descentFromTopMs: number | undefined = undefined;
   private minMetricValue: number = 180;
   private minRawMetricValue: number | undefined = undefined;
   private rawMetricWindow: number[] = [];
+  private maxDepthProxy: number | undefined = undefined;
+  private rawDepthProxyWindow: number[] = [];
   private maxMetricValue: number = 0;
   private repIndex: number = 0;
 
@@ -62,14 +66,21 @@ export class RepCounter {
    * Memperbarui penghitungan repetisi atau durasi hold dengan frame pose baru.
    */
   public update(frame: PoseFrame): CounterUpdate {
-    if (this.firstTimestampMs === 0) {
+    const gapDt = this.lastFrameTimestampMs > 0 ? Math.max(0, frame.timestampMs - this.lastFrameTimestampMs) : 0;
+    const isInitialOrRecalib = this.firstTimestampMs === 0;
+
+    if (isInitialOrRecalib) {
       this.firstTimestampMs = frame.timestampMs;
       this.lastFrameTimestampMs = frame.timestampMs;
+      this.lastTopTimestampMs = undefined;
     }
 
     const elapsedTotal = frame.timestampMs - this.firstTimestampMs;
-    const dt = this.lastFrameTimestampMs > 0 ? Math.max(0, frame.timestampMs - this.lastFrameTimestampMs) : 0;
+    const dt = isInitialOrRecalib ? 0 : gapDt;
     this.lastFrameTimestampMs = frame.timestampMs;
+    if (gapDt > 1000) {
+      this.lastTopTimestampMs = undefined;
+    }
 
     // 1. Kalibrasi Baseline (1500 ms pertama saat pengguna berdiri/posisi awal)
     if (!this.isCalibrated) {
@@ -112,6 +123,25 @@ export class RepCounter {
     }
   }
 
+  private updateRawDepthProxy(frame: PoseFrame, recordMax: boolean): void {
+    if (!this.ruleSet.counter.depthProxy || !frame.rawLandmarks || frame.rawLandmarks.length === 0) {
+      return;
+    }
+
+    const rawProxy = this.ruleSet.counter.depthProxy(frame.rawLandmarks, frame.side);
+    this.rawDepthProxyWindow.push(rawProxy);
+    if (this.rawDepthProxyWindow.length > 3) {
+      this.rawDepthProxyWindow.shift();
+    }
+
+    if (recordMax && this.rawDepthProxyWindow.length === 3) {
+      const sorted = [...this.rawDepthProxyWindow].sort((a, b) => a - b);
+      const median = sorted[1];
+      this.maxDepthProxy =
+        this.maxDepthProxy === undefined ? median : Math.max(this.maxDepthProxy, median);
+    }
+  }
+
   private updateReps(frame: PoseFrame, ctx: RepContext): CounterUpdate {
     const metricVal = this.ruleSet.counter.metric(frame);
     const { upThreshold, downThreshold, minRepMs } = this.ruleSet.counter;
@@ -141,16 +171,23 @@ export class RepCounter {
     // IDLE -> DESCENDING -> BOTTOM -> ASCENDING -> IDLE (Selesai 1 Rep)
     switch (this.phase) {
       case "idle":
+        if (metricVal >= upThreshold) {
+          this.lastTopTimestampMs = frame.timestampMs;
+        }
         if (metricVal < downThreshold) {
           this.phase = "descending";
           this.repStartTimeMs = frame.timestampMs;
           this.minMetricValue = metricVal;
           this.minRawMetricValue = undefined;
+          this.maxDepthProxy = undefined;
+          this.descentFromTopMs = undefined;
           this.maxMetricValue = metricVal;
           this.currentRepIssues = [...activeFrameIssues];
           this.updateRawMetric(frame, true);
+          this.updateRawDepthProxy(frame, true);
         } else {
           this.updateRawMetric(frame, false);
+          this.updateRawDepthProxy(frame, false);
         }
         break;
 
@@ -159,11 +196,16 @@ export class RepCounter {
           this.minMetricValue = metricVal;
         }
         this.updateRawMetric(frame, true);
+        this.updateRawDepthProxy(frame, true);
 
         // Ketika metrik mulai berbalik naik (naik > 2° dari titik minimum atau sudah mencapai upThreshold)
         if (metricVal > this.minMetricValue + 2 || metricVal >= upThreshold) {
           this.phase = "bottom";
           this.descentDurationMs = frame.timestampMs - this.repStartTimeMs;
+          this.descentFromTopMs =
+            this.lastTopTimestampMs !== undefined
+              ? frame.timestampMs - this.lastTopTimestampMs
+              : undefined;
 
           // Evaluasi aturan fase bottom (misal kedalaman squat / push-up)
           const bottomCtx = this.createRepContext(frame);
@@ -196,6 +238,7 @@ export class RepCounter {
         if (metricVal > this.maxMetricValue) {
           this.maxMetricValue = metricVal;
         }
+        this.updateRawDepthProxy(frame, true);
 
         // Repetisi selesai saat metrik kembali melewati upThreshold
         if (metricVal >= upThreshold) {
@@ -277,6 +320,13 @@ export class RepCounter {
     this.minMetricValue = 180;
     this.minRawMetricValue = undefined;
     this.rawMetricWindow = [];
+    this.maxDepthProxy = undefined;
+    this.rawDepthProxyWindow = [];
+    this.descentFromTopMs = undefined;
+    this.lastTopTimestampMs =
+      this.ruleSet.counter.metric(frame) >= this.ruleSet.counter.upThreshold
+        ? frame.timestampMs
+        : undefined;
     this.maxMetricValue = 0;
     this.currentRepIssues = [];
   }
@@ -372,9 +422,15 @@ export class RepCounter {
       currentPhase: this.phase,
       repStartTimeMs: this.repStartTimeMs,
       descentDurationMs: this.descentDurationMs,
+      ...(this.descentFromTopMs !== undefined
+        ? { descentFromTopMs: this.descentFromTopMs }
+        : {}),
       minMetricValue: this.minMetricValue,
       ...(this.minRawMetricValue !== undefined
         ? { minRawMetricValue: this.minRawMetricValue }
+        : {}),
+      ...(this.maxDepthProxy !== undefined
+        ? { maxDepthProxy: this.maxDepthProxy }
         : {}),
       maxMetricValue: this.maxMetricValue,
       repIndex: this.repIndex,
@@ -400,9 +456,13 @@ export class RepCounter {
     this.phase = "idle";
     this.repStartTimeMs = 0;
     this.descentDurationMs = 0;
+    this.lastTopTimestampMs = undefined;
+    this.descentFromTopMs = undefined;
     this.minMetricValue = 180;
     this.minRawMetricValue = undefined;
     this.rawMetricWindow = [];
+    this.maxDepthProxy = undefined;
+    this.rawDepthProxyWindow = [];
     this.maxMetricValue = 0;
     this.repIndex = 0;
     this.currentRepIssues = [];

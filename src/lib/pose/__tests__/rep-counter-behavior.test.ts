@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { RepCounter, CounterUpdate } from "../rep-counter";
 import { SQUAT_RULESET, resetViolationStreaks } from "../rules/config";
 import { LandmarkSmoother } from "../smoothing";
-import { PoseFrame } from "../rules/types";
+import { PoseFrame, RepContext, RuleSet } from "../rules/types";
 import {
   Landmark,
   L_SHOULDER,
@@ -495,6 +495,263 @@ describe("RepCounter SQUAT_RULESET behavior", () => {
     ];
     for (const [smDeg, rDeg] of sequence) {
       feedPair(smDeg, rDeg);
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).toContain("squat-depth");
+  });
+
+  it("15. TURUN 1 DETIK TIDAK DITEGUR: turun dari 170 ke 90 derajat dalam 1,0 s, bottom 0,3 s, naik normal -> tidak ada squat-descent-speed", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    const smoother = new LandmarkSmoother(0.25);
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    const feed = (angleDeg: number) => {
+      const raw = createSquatPoseFrame(angleDeg, ts);
+      lastUpdate = counter.update({
+        ...raw,
+        landmarks: smoother.smooth(raw.landmarks),
+        rawLandmarks: raw.landmarks,
+      });
+      ts += FRAME_INTERVAL_MS;
+    };
+
+    for (let i = 0; i < 48; i++) {
+      feed(STANDING_KNEE_DEG);
+    }
+
+    // Turun 170 -> 90 dalam ~1,0 s (30 frame * 33 ms = 990 ms)
+    for (let i = 1; i <= 30; i++) {
+      feed(STANDING_KNEE_DEG - ((STANDING_KNEE_DEG - 90) * i) / 30);
+    }
+
+    // Tahan bottom 90 derajat ~0,3 s (9 frame * 33 ms = 297 ms)
+    for (let i = 0; i < 9; i++) {
+      feed(90);
+    }
+
+    // Naik normal 90 -> 170 dalam ~1,0 s + frame berdiri penutup untuk lag EMA
+    for (let i = 1; i <= 30; i++) {
+      feed(90 + ((STANDING_KNEE_DEG - 90) * i) / 30);
+    }
+    for (let i = 0; i < 6; i++) {
+      feed(STANDING_KNEE_DEG);
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).not.toContain("squat-descent-speed");
+  });
+
+  it("16. JATUH 0,4 DETIK DITEGUR: turun 170 -> 90 derajat dalam 0,4 s -> squat-descent-speed muncul", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    const smoother = new LandmarkSmoother(0.25);
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    const feed = (angleDeg: number) => {
+      const raw = createSquatPoseFrame(angleDeg, ts);
+      lastUpdate = counter.update({
+        ...raw,
+        landmarks: smoother.smooth(raw.landmarks),
+        rawLandmarks: raw.landmarks,
+      });
+      ts += FRAME_INTERVAL_MS;
+    };
+
+    for (let i = 0; i < 48; i++) {
+      feed(STANDING_KNEE_DEG);
+    }
+
+    // Jatuh cepat 170 -> 90 dalam ~0,4 s (12 frame * 33 ms = 396 ms)
+    for (let i = 1; i <= 12; i++) {
+      feed(STANDING_KNEE_DEG - ((STANDING_KNEE_DEG - 90) * i) / 12);
+    }
+
+    // Naik terkontrol agar total durasi >= minRepMs (500 ms) dan rep selesai bersih
+    for (let i = 1; i <= 20; i++) {
+      feed(90 + ((STANDING_KNEE_DEG - 90) * i) / 20);
+    }
+    for (let i = 0; i < 6; i++) {
+      feed(STANDING_KNEE_DEG);
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).toContain("squat-descent-speed");
+  });
+
+  it("17. JEDA 9 DETIK: jeda 9 detik lalu turun -> descentFromTopMs undefined, check memakai fallback descentDurationMs", () => {
+    let observedDescentFromTopMs: number | undefined = -1;
+    let observedDescentDurationMs = -1;
+    const spyRuleSet: RuleSet = {
+      ...SQUAT_RULESET,
+      checks: SQUAT_RULESET.checks.map((c) =>
+        c.id === "squat-descent-speed"
+          ? {
+              ...c,
+              evaluate: (frame: PoseFrame, ctx: RepContext) => {
+                observedDescentFromTopMs = ctx.descentFromTopMs;
+                observedDescentDurationMs = ctx.descentDurationMs;
+                return c.evaluate(frame, ctx);
+              },
+            }
+          : c
+      ),
+    };
+
+    const counter = new RepCounter(spyRuleSet, "bw-air-squat");
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    for (let i = 0; i < 48; i++) {
+      lastUpdate = counter.update(createSquatPoseFrame(STANDING_KNEE_DEG, ts));
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    // Jeda 9 detik (> 1000 ms), lalu langsung berada di bawah upThreshold dan jatuh cepat (< 600 ms)
+    ts += 9000;
+    const postGapSequence = [
+      155, 145, 130, 115, 100, 90, 95, 100, 105, 110, 115, 120, 125, 130, 136,
+      142, 148, 154, 159, 164, 170, 170,
+    ];
+    for (const angle of postGapSequence) {
+      lastUpdate = counter.update(createSquatPoseFrame(angle, ts));
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    expect(observedDescentFromTopMs).toBeUndefined();
+    expect(observedDescentDurationMs).toBeGreaterThan(0);
+    expect(observedDescentDurationMs).toBeLessThan(600);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).toContain("squat-descent-speed");
+  });
+
+  const buildHipKneeFrame = (
+    kneeDeg: number,
+    hipYDiff: number,
+    ts: number
+  ): PoseFrame => {
+    const f = createSquatPoseFrame(kneeDeg, ts);
+    const kneeX = 0.55;
+    const kneeY = 0.7;
+    const thighLen = 0.2;
+    const shinLen = 0.2;
+    const clampedDiff = Math.max(-0.18, Math.min(0.18, hipYDiff));
+    const dxHip = Math.sqrt(thighLen * thighLen - clampedDiff * clampedDiff);
+    const hipX = kneeX - dxHip;
+    const hipY = kneeY + clampedDiff;
+
+    const ux = (hipX - kneeX) / thighLen;
+    const uy = (hipY - kneeY) / thighLen;
+    const rad = (kneeDeg * Math.PI) / 180;
+    const vx = ux * Math.cos(rad) + uy * Math.sin(rad);
+    const vy = -ux * Math.sin(rad) + uy * Math.cos(rad);
+
+    f.landmarks[L_SHOULDER] = { x: hipX, y: hipY - 0.3, z: 0, visibility: 0.95 };
+    f.landmarks[L_HIP] = { x: hipX, y: hipY, z: 0, visibility: 0.95 };
+    f.landmarks[L_KNEE] = { x: kneeX, y: kneeY, z: 0, visibility: 0.95 };
+    f.landmarks[L_ANKLE] = {
+      x: kneeX + shinLen * vx,
+      y: kneeY + shinLen * vy,
+      z: 0,
+      visibility: 0.95,
+    };
+    return f;
+  };
+
+  it("18. DEPTH PROXY SEJAJAR: sudut dasar 118 derajat tetapi hip.y >= knee.y -> tidak ada squat-depth", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    const feedStand = () => {
+      const f = createSquatPoseFrame(STANDING_KNEE_DEG, ts);
+      lastUpdate = counter.update({ ...f, rawLandmarks: f.landmarks });
+      ts += FRAME_INTERVAL_MS;
+    };
+
+    for (let i = 0; i < 48; i++) feedStand();
+
+    const steps: Array<[number, number]> = [
+      [162, -0.15],
+      [152, -0.12],
+      [144, -0.09],
+      [138, -0.07],
+      [132, -0.05],
+      [126, -0.03],
+      [122, -0.01],
+      [118, 0.0],
+      [118, 0.01],
+      [118, 0.01],
+      [118, 0.0],
+      [120, -0.01],
+      [124, -0.03],
+      [129, -0.05],
+      [134, -0.07],
+      [140, -0.09],
+      [146, -0.11],
+      [152, -0.13],
+      [157, -0.15],
+      [162, -0.16],
+      [168, -0.18],
+      [170, -0.19],
+      [170, -0.19],
+    ];
+    for (const [deg, diff] of steps) {
+      const f = buildHipKneeFrame(deg, diff, ts);
+      lastUpdate = counter.update({ ...f, rawLandmarks: f.landmarks });
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    expect(lastUpdate.repsCount).toBe(1);
+    const issueIds = (lastUpdate.lastCompletedRep?.issues ?? []).map((i) => i.checkId);
+    expect(issueIds).not.toContain("squat-depth");
+  });
+
+  it("19. KONTROL NEGATIF DEPTH PROXY: sudut dasar 135 derajat dan hip.y 0,08 di atas knee.y -> squat-depth tetap muncul", () => {
+    const counter = new RepCounter(SQUAT_RULESET, "bw-air-squat");
+    let ts = START_TS_MS;
+    let lastUpdate!: CounterUpdate;
+
+    for (let i = 0; i < 48; i++) {
+      const f = createSquatPoseFrame(STANDING_KNEE_DEG, ts);
+      lastUpdate = counter.update({ ...f, rawLandmarks: f.landmarks });
+      ts += FRAME_INTERVAL_MS;
+    }
+
+    const steps: Array<[number, number]> = [
+      [162, -0.16],
+      [152, -0.14],
+      [146, -0.12],
+      [142, -0.11],
+      [138, -0.095],
+      [136, -0.085],
+      [135, -0.08],
+      [135, -0.08],
+      [135, -0.08],
+      [135, -0.08],
+      [137, -0.088],
+      [140, -0.1],
+      [143, -0.11],
+      [146, -0.122],
+      [149, -0.134],
+      [152, -0.142],
+      [155, -0.15],
+      [158, -0.158],
+      [161, -0.165],
+      [165, -0.172],
+      [169, -0.18],
+      [170, -0.19],
+      [170, -0.19],
+    ];
+    for (const [deg, diff] of steps) {
+      const f = buildHipKneeFrame(deg, diff, ts);
+      lastUpdate = counter.update({ ...f, rawLandmarks: f.landmarks });
+      ts += FRAME_INTERVAL_MS;
     }
 
     expect(lastUpdate.repsCount).toBe(1);

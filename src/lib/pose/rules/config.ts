@@ -5,7 +5,13 @@ import {
   RepContext,
   CheckResult,
 } from "./types";
-import { angleAt, angleAt2D, angleFromVertical, angleFromVertical2D } from "../geometry";
+import {
+  angleAt,
+  angleAt2D,
+  angleFromVertical,
+  angleFromVertical2D,
+  pickVisibleSide,
+} from "../geometry";
 import {
   Landmark,
   NOSE,
@@ -167,10 +173,11 @@ export const SQUAT_DEPTH_CHECK: FormCheck = {
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
     // Sudut lutut minimum di fase terbawah (bottom)
     // heuristik, toleransi ±10–15°
-    // Standar paralel: sudut lutut < 110°. Jika >= 110°, paha belum mencapai paralel
-    // Pakai median-3 sudut mentah bila tersedia agar fase lag EMA tidak menutupi kedalaman
+    // Standar paralel: sudut lutut < 110° atau paha sejajar (maxDepthProxy = hip.y - knee.y >= -0.02)
     const minKneeAngle = ctx.minRawMetricValue ?? ctx.minMetricValue;
-    if (minKneeAngle >= 110) {
+    const depthOkByAngle = minKneeAngle < 110;
+    const depthOkByProxy = ctx.maxDepthProxy !== undefined && ctx.maxDepthProxy >= -0.02;
+    if (!depthOkByAngle && !depthOkByProxy) {
       return {
         ok: false,
         value: Math.round(minKneeAngle),
@@ -245,17 +252,17 @@ export const SQUAT_DESCENT_SPEED_CHECK: FormCheck = {
   severity: "minor",
   when: "bottom",
   evaluate: (_frame: PoseFrame, ctx: RepContext): CheckResult => {
-    // Durasi dihitung sejak sudut melewati downThreshold (150 derajat), bukan
-    // dari awal turun; squat terkontrol 2 detik per siklus sekitar 700-800 ms.
-    // Heuristik 600 ms, perlu dikalibrasi dengan data kamera nyata.
-    if (ctx.descentDurationMs > 0 && ctx.descentDurationMs < 600) {
+    // Ambang tetap 600 ms, tetapi kini diukur dari saat meninggalkan posisi atas
+    // (frame terakhir metrik terhalus >= upThreshold), bukan dari 150 derajat.
+    const descentMs = ctx.descentFromTopMs ?? ctx.descentDurationMs;
+    if (descentMs > 0 && descentMs < 600) {
       return {
         ok: false,
-        value: ctx.descentDurationMs,
+        value: descentMs,
         cue: "Turun lebih terkontrol",
       };
     }
-    return { ok: true, value: ctx.descentDurationMs, cue: "" };
+    return { ok: true, value: descentMs, cue: "" };
   },
 };
 
@@ -283,6 +290,12 @@ export const SQUAT_RULESET: RuleSet = {
       const joints = getSideJoints(frame.landmarks, frame.side);
       if (!joints.hip || !joints.knee || !joints.ankle) return 180;
       return angleAt2D(joints.hip, joints.knee, joints.ankle);
+    },
+    depthProxy: (landmarks: Landmark[], side?: "left" | "right"): number => {
+      const resolvedSide = side ?? pickVisibleSide(landmarks);
+      const joints = getSideJoints(landmarks, resolvedSide);
+      if (!joints.hip || !joints.knee) return -1;
+      return joints.hip.y - joints.knee.y;
     },
     upThreshold: 160,
     downThreshold: 150,

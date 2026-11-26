@@ -25,8 +25,10 @@ export interface RepContext {
   currentPhase: "idle" | "descending" | "bottom" | "ascending";
   repStartTimeMs: number;
   descentDurationMs: number;
+  descentFromTopMs?: number;
   minMetricValue: number;
   minRawMetricValue?: number;
+  maxDepthProxy?: number;
   maxMetricValue: number;
   repIndex: number;
   exerciseId: string;
@@ -42,6 +44,7 @@ export interface FormCheck {
 
 export interface CounterConfig {
   metric: (frame: PoseFrame) => number;
+  depthProxy?: (landmarks: Landmark[], side?: "left" | "right") => number;
   upThreshold: number;
   downThreshold: number;
   minRepMs: number;
