@@ -3,7 +3,7 @@
 @import "tailwindcss/utilities";
 
 :root {
-  --background: #0B0C0E;
+  --background: #080808;
   --foreground: #F5F5F7;
   --accent-lime: #CCFF00;
 }
@@ -57,4 +57,103 @@ body {
 /* Prevent unwanted mobile pull-to-refresh & double-tap zoom on buttons */
 button, input {
   touch-action: manipulation;
+}
+
+/* Smooth anchor scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Landing page ticker */
+@keyframes marqueeScroll {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marqueeScroll 38s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Subtle bottom-up bar rise for volume preview */
+@keyframes barRise {
+  0% {
+    transform: scaleY(0.2);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-bar-rise {
+  transform-origin: bottom;
+  animation: barRise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Full-width balanced glassy navbar */
+.landing-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: rgba(8, 8, 8, 0.72);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.landing-navbar.is-scrolled {
+  background: rgba(8, 8, 8, 0.62);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+}
+
+.landing-navbar-inner {
+  width: 100%;
+  height: 72px;
+  padding-left: 20px;
+  padding-right: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .landing-navbar-inner {
+    padding-left: 40px;
+    padding-right: 40px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+}
+
+@media (min-width: 1280px) {
+  .landing-navbar-inner {
+    padding-left: 56px;
+    padding-right: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-bar-rise {
+    animation: none !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
 }

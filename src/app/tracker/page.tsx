@@ -31,7 +31,7 @@ import {
   Dumbbell,
   Camera,
   Calendar,
-  Home
+  ArrowLeft
 } from "lucide-react";
 import { BodyAnatomyMap, ExerciseAttributeValueEnum, MUSCLE_GROUPS } from "@/components/BodyAnatomyMap";
 import { TutorialModal } from "@/components/TutorialModal";
@@ -561,98 +561,98 @@ export default function HomePage() {
   return (
     <div className="flex-1 w-full max-w-4xl mx-auto px-3 sm:px-6 py-5 sm:py-8 space-y-6">
       {/* 1. TOP HEADER & SPORTY BRANDING */}
-      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#222222] pb-5">
-        <div
-          onClick={() => {
-            setCurrentStep(1);
-            setActiveTab("builder");
-          }}
-          className="flex items-center gap-3 cursor-pointer group select-none"
-          title="Klik untuk kembali ke halaman utama"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-lime-400 flex items-center justify-center text-black border border-lime-300 group-hover:scale-105 transition-transform">
-            <BrandLogo className="w-7 h-7 stroke-[2.8]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-metric text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-white group-hover:text-lime-400 transition-colors">
-                AYO-OLAHRAGA
-              </h1>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsProModalOpen(true);
-                }}
-                className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-400 hover:bg-amber-300 text-black font-metric flex items-center gap-1 transition-all shadow-sm"
-                title="Buka Pratinjau Ayo-Olahraga Pro Suite"
-              >
-                <span>PRO SUITE</span>
-                <Lock className="w-2.5 h-2.5 stroke-[3]" />
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5 font-sans">
-              Industrial gym tracker, muscle pump heatmap, dan progressive overload.
-            </p>
-          </div>
-        </div>
-
-        {/* Global Action Bar: Tools, Online Status */}
-        <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
-          {/* Link ke Landing Page / Beranda */}
+      <header className="space-y-3 border-b border-[#222222] pb-5">
+        <div className="flex items-center justify-between gap-2">
           <Link
             href="/"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#141414] hover:bg-[#1E1E1E] border border-[#262626] hover:border-lime-400/40 text-gray-200 hover:text-lime-400 text-xs font-metric font-bold uppercase transition-colors"
-            title="Kembali ke halaman depan (Landing Page)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141414] hover:bg-[#1E1E1E] border border-[#262626] hover:border-lime-400/50 text-zinc-300 hover:text-lime-400 text-xs font-medium transition-colors"
           >
-            <Home className="w-3.5 h-3.5 text-lime-400" />
-            <span className="hidden xs:inline">BERANDA</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Kembali ke Beranda</span>
           </Link>
 
           {/* Connectivity Badge */}
           <div
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
               isOnline
                 ? "bg-lime-400/10 border-lime-400/30 text-lime-400"
                 : "bg-amber-500/10 border-amber-500/30 text-amber-400"
             }`}
           >
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-            <span className="hidden xs:inline font-metric font-bold uppercase">{isOnline ? "ONLINE" : "OFFLINE PWA"}</span>
+            <span className="font-metric font-bold uppercase">{isOnline ? "ONLINE" : "OFFLINE PWA"}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div
+            onClick={() => {
+              setCurrentStep(1);
+              setActiveTab("builder");
+            }}
+            className="flex items-center gap-3 cursor-pointer group select-none"
+            title="Reset ke langkah 1 (Pilih Alat)"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-lime-400 flex items-center justify-center text-black border border-lime-300 group-hover:scale-105 transition-transform">
+              <BrandLogo className="w-6 h-6 stroke-[2.8]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="font-metric text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-white group-hover:text-lime-400 transition-colors">
+                  AYO-OLAHRAGA
+                </h1>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsProModalOpen(true);
+                  }}
+                  className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-400 hover:bg-amber-300 text-black font-metric flex items-center gap-1 transition-all shadow-sm"
+                  title="Buka Pratinjau Ayo-Olahraga Pro Suite"
+                >
+                  <span>PRO SUITE</span>
+                  <Lock className="w-2.5 h-2.5 stroke-[3]" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5 font-sans">
+                Industrial gym tracker, muscle pump heatmap, dan progressive overload.
+              </p>
+            </div>
           </div>
 
-          {/* Wizard Buat Program */}
-          {activePlan && (
+          {/* Global Action Bar */}
+          <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto justify-start sm:justify-end">
+            {activePlan && (
+              <Link
+                href="/program"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 text-emerald-300 text-xs font-metric font-bold uppercase transition-colors"
+                title="Lihat jadwal program aktif"
+              >
+                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                <span>JADWAL</span>
+              </Link>
+            )}
             <Link
-              href="/program"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/40 text-emerald-300 text-xs font-metric font-bold uppercase transition-colors"
-              title="Lihat jadwal program aktif"
+              href="/program/new"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lime-400/15 hover:bg-lime-400/25 border border-lime-400/40 text-lime-300 text-xs font-metric font-bold uppercase transition-colors"
+              title="Susun program latihan baru (7 langkah)"
             >
-              <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-              <span>JADWAL</span>
+              <Sparkles className="w-3.5 h-3.5 text-lime-400" />
+              <span>BUAT PROGRAM</span>
             </Link>
-          )}
-          <Link
-            href="/program/new"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lime-400/15 hover:bg-lime-400/25 border border-lime-400/40 text-lime-300 text-xs font-metric font-bold uppercase transition-colors"
-            title="Susun program latihan baru (7 langkah)"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-lime-400" />
-            <span>BUAT PROGRAM</span>
-          </Link>
 
-          {/* Nutrition / Tools Switcher */}
-          <button
-            onClick={() => setActiveTab(activeTab === "builder" ? "tools" : "builder")}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-metric font-bold uppercase transition-all ${
-              activeTab === "tools"
-                ? "bg-lime-400 text-black border-lime-400 font-bold"
-                : "bg-[#141414] hover:bg-[#1E1E1E] border-[#262626] text-gray-200"
-            }`}
-          >
-            <Utensils className="w-4 h-4 text-lime-400" />
-            <span>{activeTab === "tools" ? "KEMBALI LATIHAN" : "ALAT & DATA"}</span>
-          </button>
+            <button
+              onClick={() => setActiveTab(activeTab === "builder" ? "tools" : "builder")}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-metric font-bold uppercase transition-all ${
+                activeTab === "tools"
+                  ? "bg-lime-400 text-black border-lime-400 font-bold"
+                  : "bg-[#141414] hover:bg-[#1E1E1E] border-[#262626] text-gray-200"
+              }`}
+            >
+              <Utensils className="w-4 h-4 text-lime-400" />
+              <span>{activeTab === "tools" ? "KEMBALI LATIHAN" : "ALAT & DATA"}</span>
+            </button>
+          </div>
         </div>
       </header>
 
